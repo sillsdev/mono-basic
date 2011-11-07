@@ -94,13 +94,13 @@ endif
 ifdef NO_INSTALL
 GACUTIL = :
 else
-GACUTIL = gacutil
+GACUTIL = ${mono_bindir}/gacutil
 endif
 
 ifdef NO_SIGN_ASSEMBLY
 SN = :
 else
-SN = sn
+SN = ${mono_bindir}/sn
 SNFLAGS = -q -R
 endif
 
