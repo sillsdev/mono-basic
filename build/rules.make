@@ -23,6 +23,7 @@ CCOMPILE = $(CC) $(USE_CFLAGS)
 BOOTSTRAP_VBNC = MONO_PATH="$(topdir)/class/lib/bootstrap$(PLATFORM_PATH_SEPARATOR)$$MONO_PATH" $(RUNTIME) $(RUNTIME_FLAGS) --debug $(topdir)/class/lib/bootstrap/vbnc.exe
 BOOT_COMPILE = $(BOOTSTRAP_VBNC) $(USE_VBNC_FLAGS)
 VBNC = MONO_PATH="$(topdir)/class/lib/net_4_0$(PLATFORM_PATH_SEPARATOR)$$MONO_PATH" $(RUNTIME) $(RUNTIME_FLAGS) --debug $(topdir)/class/lib/net_4_0/vbnc.exe
+DMCS = ${mono_bindir}/dmcs
 INSTALL = $(SHELL) $(topdir)/install-sh
 INSTALL_DATA = $(INSTALL) -c -m 644
 INSTALL_BIN = $(INSTALL) -c -m 755
