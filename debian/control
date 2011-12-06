@@ -5,7 +5,8 @@ Maintainer: Neil Mayhew <neil_mayhew@sil.org>
 Build-Depends: cdbs, debhelper (>= 7.0.50~), dpkg-dev (>= 1.13.19),
  lsb-release,
  cli-common-dev (>= 0.4.4),
- libmono-cil-dev
+ libmono-cil-dev,
+ fieldworks-mono | libmono-system2.0-cil
 Standards-Version: 3.9.1
 Homepage: http://www.mono-project.com/
 
