@@ -27,11 +27,9 @@ Public Class TypeParameters
 
     Private m_TypeParameters As New TypeParameterList(Me)
 
-    Function Clone() As TypeParameters
-        Dim result As New TypeParameters()
-        result.Parameters.AddRange(m_TypeParameters.Clone())
-        Return result
-    End Function
+    Sub New(ByVal Parent As ParsedObject)
+        MyBase.New(Parent)
+    End Sub
 
     ReadOnly Property Parameters() As TypeParameterList
         Get
@@ -51,9 +49,12 @@ Public Class TypeParameters
         Return tm.CurrentToken = KS.LParenthesis AndAlso tm.PeekToken = KS.Of
     End Function
 
-    Public Overrides Sub Initialize(ByVal Parent As BaseObject)
-        MyBase.Initialize(Parent)
+    Public Overrides Function CreateDefinition() As Boolean
+        Dim result As Boolean = True
 
-        m_TypeParameters.Initialize(Me)
-    End Sub
+        result = MyBase.CreateDefinition AndAlso result
+        result = m_TypeParameters.CreateDefinition() AndAlso result
+
+        Return result
+    End Function
 End Class

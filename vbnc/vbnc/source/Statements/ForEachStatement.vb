@@ -109,7 +109,7 @@ Public Class ForEachStatement
         If isGenericParameter Then
             Emitter.EmitUnbox_Any(Info, varType)
         ElseIf isClass Then
-            Emitter.EmitCastClass(Info, Compiler.TypeCache.System_Object, varType)
+            Emitter.EmitCastClass(Info, varType)
         ElseIf isValueType Then
             Emitter.MarkLabel(Info, valueTPLoad)
             Emitter.EmitUnbox(Info, varType)
@@ -141,7 +141,7 @@ Public Class ForEachStatement
 
         'Load the container variable and get the enumerator
         result = m_InExpression.GenerateCode(Info.Clone(Me, True, False, m_InExpression.ExpressionType)) AndAlso result
-        Emitter.EmitCastClass(Info, m_InExpression.ExpressionType, Helper.GetTypeOrTypeReference(Compiler, Compiler.TypeCache.System_Collections_IEnumerable))
+        Emitter.EmitCastClass(Info, Helper.GetTypeOrTypeReference(Compiler, Compiler.TypeCache.System_Collections_IEnumerable))
         Emitter.EmitCallVirt(Info, Helper.GetMethodOrMethodReference(Compiler, Compiler.TypeCache.System_Collections_IEnumerable__GetEnumerator))
         Emitter.EmitStoreVariable(Info, m_Enumerator)
 
@@ -205,26 +205,46 @@ Public Class ForEachStatement
         End If
 
         result = m_InExpression.ResolveExpression(Info) AndAlso result
+        If result = False Then Return False
         result = Helper.VerifyValueClassification(m_InExpression, Info) AndAlso result
 
         result = CodeBlock.ResolveCode(Info) AndAlso result
 
         If m_NextExpression IsNot Nothing Then
-            'TODO: Add check here. Seems like this expression can be arbitrarily complex
-            Dim sneNext As SimpleNameExpression = TryCast(m_NextExpression, SimpleNameExpression)
-            If sneNext IsNot Nothing Then
-                If Helper.CompareName(sneNext.Identifier.Identifier, m_LoopControlVariable.Identifier.Identifier) = False Then
-                    result = Compiler.Report.ShowMessage(Messages.VBNC30070, sneNext.Location, m_LoopControlVariable.Identifier.Identifier) AndAlso result
+            result = m_NextExpression.ResolveExpression(Info) AndAlso result
+            If result = False Then Return False
+
+            If m_NextExpression.Classification.IsVariableClassification Then
+                If m_LoopControlVariable.Expression IsNot Nothing Then
+                    Dim lcvVar As VariableClassification = Nothing
+                    Dim nextExpVar As VariableClassification = m_NextExpression.Classification.AsVariableClassification
+
+                    If m_LoopControlVariable.Expression.Classification.IsVariableClassification Then
+                        lcvVar = m_LoopControlVariable.Expression.Classification.AsVariableClassification
+                    End If
+
+                    If lcvVar IsNot Nothing AndAlso lcvVar.LocalVariable Is nextExpVar.LocalVariable Then
+                        'OK
+                    ElseIf lcvVar IsNot Nothing AndAlso lcvVar.ArrayVariable IsNot Nothing AndAlso lcvVar.ArrayVariable.Classification.IsVariableClassification AndAlso lcvVar.ArrayVariable.Classification.AsVariableClassification.LocalVariable Is nextExpVar.LocalVariable Then
+                        'OK
+                    Else
+                        result = Compiler.Report.ShowMessage(Messages.VBNC30070, m_NextExpression.Location, m_LoopControlVariable.Identifier.Name)
+                    End If
+                ElseIf m_NextExpression.Classification.AsVariableClassification.LocalVariable IsNot m_LoopControlVariable.GetVariableDeclaration Then
+                    result = Compiler.Report.ShowMessage(Messages.VBNC30070, m_NextExpression.Location, m_LoopControlVariable.Identifier.Name)
+                End If
+                Else
+                    result = Compiler.Report.ShowMessage(Messages.VBNC30070, m_NextExpression.Location, m_LoopControlVariable.Identifier.Name)
                 End If
             End If
-        End If
 
-        Compiler.Helper.AddCheck("It is not valid to branch into a For Each statement block from outside the block.")
-        Compiler.Helper.AddCheck("The loop control variable is specified either through an identifier followed by an As clause or an expression. (...) In the case of an expression, the expression must be classified as a variable. ")
-        Compiler.Helper.AddCheck("The enumerator expression must be classified as a value and its type must be a collection type or Object. ")
-        Compiler.Helper.AddCheck("If the type of the enumerator expression is Object, then all processing is deferred until run-time. Otherwise, a conversion must exist from the element type of the collection to the type of the loop control variable")
-        Compiler.Helper.AddCheck("The loop control variable cannot be used by another enclosing For Each statement. ")
+            Compiler.Helper.AddCheck("It is not valid to branch into a For Each statement block from outside the block.")
+            Compiler.Helper.AddCheck("The loop control variable is specified either through an identifier followed by an As clause or an expression. (...) In the case of an expression, the expression must be classified as a variable. ")
+            Compiler.Helper.AddCheck("The enumerator expression must be classified as a value and its type must be a collection type or Object. ")
+            Compiler.Helper.AddCheck("If the type of the enumerator expression is Object, then all processing is deferred until run-time. Otherwise, a conversion must exist from the element type of the collection to the type of the loop control variable")
+            Compiler.Helper.AddCheck("The loop control variable cannot be used by another enclosing For Each statement. ")
 
-        Return result
+            Return result
     End Function
 End Class
+

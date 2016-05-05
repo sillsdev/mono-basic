@@ -94,13 +94,13 @@ endif
 ifdef NO_INSTALL
 GACUTIL = :
 else
-GACUTIL = ${mono_bindir}/gacutil
+GACUTIL = gacutil
 endif
 
 ifdef NO_SIGN_ASSEMBLY
 SN = :
 else
-SN = ${mono_bindir}/sn
+SN = sn
 SNFLAGS = -q -R
 endif
 
@@ -229,7 +229,7 @@ dist-local: dist-default
 
 ifdef LIBRARY_NEEDS_POSTPROCESSING
 dist-local: dist-fixup
-FIXUP_PROFILES = default net_2_0
+FIXUP_PROFILES = default net_4_0
 dist-fixup:
 	$(MKINSTALLDIRS) $(distdir)/fixup $(FIXUP_PROFILES:%=$(distdir)/fixup/%)
 endif

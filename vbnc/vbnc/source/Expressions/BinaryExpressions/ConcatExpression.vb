@@ -27,35 +27,43 @@ Public Class ConcatExpression
 
         If result = False Then Return result
 
-        Dim l, r, other As Boolean
+        Dim l, r As Boolean
+        Dim lObj, rObj As Boolean
+
         l = Helper.CompareType(m_LeftExpression.ExpressionType, Compiler.TypeCache.System_DBNull)
         r = Helper.CompareType(m_RightExpression.ExpressionType, Compiler.TypeCache.System_DBNull)
+        
         If l AndAlso r = False Then 'DBNull & whatever
             m_LeftExpression = New NothingConstantExpression(Me)
             result = m_LeftExpression.ResolveExpression(Info) AndAlso result
         ElseIf l = False AndAlso r Then 'whatever & DBNull
             m_RightExpression = New NothingConstantExpression(Me)
             result = m_RightExpression.ResolveExpression(Info) AndAlso result
-        Else
-            other = True
+        ElseIf l AndAlso r Then 'DBNull & DBNull
+            Return Compiler.Report.ShowMessage(Messages.VBNC30452, Me.Location, "&", Helper.ToString(Compiler, LeftType), Helper.ToString(Compiler, RightType))
         End If
 
         If l = False Then
-            If Helper.CompareType(m_LeftExpression.ExpressionType, Compiler.TypeCache.System_Char_Array) Then
-                m_LeftExpression = New CStrExpression(Me, m_LeftExpression)
-                result = m_LeftExpression.ResolveExpression(Info) AndAlso result
+            lObj = Helper.CompareType(m_LeftExpression.ExpressionType, Compiler.TypeCache.System_Object)
+            If Location.File(Compiler).IsOptionStrictOn AndAlso lObj Then
+                result = Compiler.Report.ShowMessage(Messages.VBNC30038, Me.Location, "&")
             End If
+            If LeftTypeCode <> TypeCode.Object Then m_LeftExpression = New CStrExpression(Me, m_LeftExpression)
+            result = m_LeftExpression.ResolveExpression(Info) AndAlso result
         End If
 
         If r = False Then
-            If Helper.CompareType(m_RightExpression.ExpressionType, Compiler.TypeCache.System_Char_Array) Then
-                m_RightExpression = New CStrExpression(Me, m_RightExpression)
-                result = m_RightExpression.ResolveExpression(Info) AndAlso result
+            rObj = Helper.CompareType(m_RightExpression.ExpressionType, Compiler.TypeCache.System_Object)
+            If Location.File(Compiler).IsOptionStrictOn AndAlso rObj Then
+                result = Compiler.Report.ShowMessage(Messages.VBNC30038, Me.Location, "&")
             End If
+            If RightTypeCode <> TypeCode.Object Then m_RightExpression = New CStrExpression(Me, m_RightExpression)
+            result = m_RightExpression.ResolveExpression(Info) AndAlso result
         End If
 
         Return result
     End Function
+
     Protected Overrides Function GenerateCodeInternal(ByVal Info As EmitInfo) As Boolean
         Dim result As Boolean = True
 
@@ -88,23 +96,21 @@ Public Class ConcatExpression
         End Get
     End Property
 
-    Public Overrides ReadOnly Property IsConstant() As Boolean
-        Get
-            Return m_LeftExpression.IsConstant AndAlso (Helper.CompareType(m_LeftExpression.ExpressionType, Compiler.TypeCache.System_String) OrElse Helper.CompareType(m_LeftExpression.ExpressionType, Compiler.TypeCache.System_Char)) _
-              AndAlso m_RightExpression.IsConstant AndAlso (Helper.CompareType(m_RightExpression.ExpressionType, Compiler.TypeCache.System_String) OrElse Helper.CompareType(m_RightExpression.ExpressionType, Compiler.TypeCache.System_Char))
-        End Get
-    End Property
+    Public Overrides Function GetConstant(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim lvalue As Object = Nothing
+        Dim rvalue As Object = Nothing
 
-    Public Overrides ReadOnly Property ConstantValue() As Object
-        Get
-            If IsConstant = False Then Throw New InternalException(Me)
+        If Not m_LeftExpression.GetConstant(lvalue, ShowError) Then Return False
+        If Not m_RightExpression.GetConstant(rvalue, ShowError) Then Return False
 
-            Dim rvalue, lvalue As String
+        If ((TypeOf lvalue Is String OrElse TypeOf lvalue Is Char) AndAlso (TypeOf rvalue Is String OrElse TypeOf rvalue Is Char)) = False Then
+            If ShowError Then Show30059()
+            Return False
+        End If
 
-            lvalue = CStr(m_LeftExpression.ConstantValue)
-            rvalue = CStr(m_RightExpression.ConstantValue)
+        result = CStr(lvalue) & CStr(rvalue)
 
-            Return lvalue & rvalue
-        End Get
-    End Property
+        Return True
+    End Function
 End Class
+

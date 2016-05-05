@@ -34,6 +34,7 @@ Public MustInherit Class VariableDeclaration
     Private m_TypeName As TypeName
     Private m_VariableInitializer As VariableInitializer
     Private m_ArgumentList As ArgumentList
+    Private m_Referenced As Boolean
 
     Private m_VariableType As Mono.Cecil.TypeReference
 
@@ -80,19 +81,6 @@ Public MustInherit Class VariableDeclaration
     Shadows Sub Init(ByVal Modifiers As Modifiers, ByVal Name As String, ByVal VariableType As Mono.Cecil.TypeReference)
         MyBase.Init(Modifiers, Name)
         m_VariableType = VariableType
-
-    End Sub
-
-    Shadows Sub Init(ByVal Modifiers As Modifiers, ByVal Name As String, ByVal VariableType As TypeName)
-        MyBase.Init(Modifiers, Name)
-        m_TypeName = VariableType
-
-        Helper.Assert(m_TypeName IsNot Nothing)
-    End Sub
-
-    Public Overrides Sub Initialize(ByVal Parent As BaseObject)
-        MyBase.Initialize(Parent)
-
     End Sub
 
     ReadOnly Property DeclaringMethod() As MethodDeclaration
@@ -107,10 +95,13 @@ Public MustInherit Class VariableDeclaration
         End Get
     End Property
 
-    Public ReadOnly Property VariableType() As Mono.Cecil.TypeReference
+    Public Property VariableType() As Mono.Cecil.TypeReference
         Get
             Return m_VariableType
         End Get
+        Set(ByVal value As Mono.Cecil.TypeReference)
+            m_VariableType = value
+        End Set
     End Property
 
     ReadOnly Property VariableTypeOrTypeBuilder() As Mono.Cecil.TypeReference
@@ -119,10 +110,13 @@ Public MustInherit Class VariableDeclaration
         End Get
     End Property
 
-    ReadOnly Property TypeName() As TypeName
+    Property TypeName() As TypeName
         Get
             Return m_TypeName
         End Get
+        Set(ByVal value As TypeName)
+            m_TypeName = value
+        End Set
     End Property
 
     ReadOnly Property IsNew() As Boolean
@@ -141,6 +135,15 @@ Public MustInherit Class VariableDeclaration
         Get
             Return m_ArgumentList
         End Get
+    End Property
+
+    Public Property IsReferenced() As Boolean
+        Get
+            Return m_Referenced
+        End Get
+        Set(ByVal value As Boolean)
+            m_Referenced = value
+        End Set
     End Property
 
     Public Overrides Function ResolveTypeReferences() As Boolean
@@ -166,6 +169,8 @@ Public MustInherit Class VariableDeclaration
                     End If
                     m_NewExpression = New DelegateOrObjectCreationExpression(Me, m_TypeName.AsNonArrayTypeName, m_ArgumentList)
                 End If
+            ElseIf m_VariableIdentifier Is Nothing Then
+                'Do nothing, we've been created by an event that hasn't ResolveTypeReferences yet.
             ElseIf m_VariableIdentifier.Identifier.HasTypeCharacter Then
                 m_VariableType = TypeCharacters.TypeCharacterToType(Compiler, m_VariableIdentifier.Identifier.TypeCharacter)
             Else
@@ -180,7 +185,7 @@ Public MustInherit Class VariableDeclaration
 
         If m_VariableIdentifier IsNot Nothing AndAlso m_VariableIdentifier.HasArrayNameModifier Then
             If CecilHelper.IsArray(m_VariableType) Then
-                result = Helper.AddError(Me, "Cannot specify array modifier on both type name and on variable name.") AndAlso result
+                result = Compiler.Report.ShowMessage(Messages.VBNC31087, Location) AndAlso result
             Else
                 If m_VariableIdentifier.ArrayNameModifier.IsArraySizeInitializationModifier Then
                     m_VariableType = m_VariableIdentifier.ArrayNameModifier.AsArraySizeInitializationModifier.CreateArrayType(m_VariableType)
@@ -190,6 +195,10 @@ Public MustInherit Class VariableDeclaration
                     Throw New InternalException(Me)
                 End If
             End If
+        End If
+
+        If m_VariableIdentifier IsNot Nothing AndAlso m_VariableIdentifier.IsNullable Then
+            result = CecilHelper.CreateNullableType(Me, m_VariableType, m_VariableType) AndAlso result
         End If
 
         If m_NewExpression IsNot Nothing Then result = m_NewExpression.ResolveTypeReferences AndAlso result
@@ -207,14 +216,19 @@ Public MustInherit Class VariableDeclaration
         If m_TypeName IsNot Nothing Then result = m_TypeName.ResolveCode(Info) AndAlso result
 
         result = MyBase.ResolveCode(ResolveInfo.Default(Info.Compiler)) AndAlso result
-        If m_ArgumentList IsNot Nothing Then result = m_ArgumentList.ResolveCode(ResolveInfo.Default(Info.Compiler)) AndAlso result
+        If m_ArgumentList IsNot Nothing Then
+            result = m_ArgumentList.ResolveCode(ResolveInfo.Default(Info.Compiler)) AndAlso result
+            If result = False Then Return False
+        End If
 
         If m_NewExpression IsNot Nothing Then
             result = m_NewExpression.ResolveExpression(ResolveInfo.Default(Info.Compiler)) AndAlso result
+            If result = False Then Return False
         End If
 
         If m_VariableInitializer IsNot Nothing Then
             result = m_VariableInitializer.ResolveCode(New ExpressionResolveInfo(Compiler, VariableType)) AndAlso result
+            If result = False Then Return False
         End If
 
         Return result
@@ -286,3 +300,4 @@ Public MustInherit Class VariableDeclaration
         Return i > 0 AndAlso tm.PeekToken(i).IsIdentifier
     End Function
 End Class
+

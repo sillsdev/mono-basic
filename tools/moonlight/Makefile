@@ -17,15 +17,15 @@ test-local run-test-local run-test-ondotnet-local all-local install-local uninst
 dist-local: dist-default
 
 tuner.exe: tuner.vb
-	mono --debug $(topdir)/class/lib/bootstrap/vbnc.exe tuner.vb -out:tuner.exe -r:$(MCS_PATH)/class/lib/basic/Mono.Cecil.dll -debug+
+	mono --debug $(topdir)/class/lib/bootstrap/vbnc.exe tuner.vb -out:tuner.exe -r:`pkg-config --variable=Libraries cecil` -debug+ -r:$(topdir)/class/lib/bootstrap/Microsoft.VisualBasic.dll -noconfig -novbruntimeref
 
-moonlight:
+moonlight: tuner.exe
 	mkdir -p $(topdir)/class/lib/moonlight
 	$(MAKE) -C ../../vbruntime/Microsoft.VisualBasic PROFILE=moonlight
 	
 tune: moonlight tuner.exe
 	mkdir -p $(topdir)/class/lib/2.1/
-	MONO_PATH=$(MONO_PATH)::$(MCS_PATH)/class/lib/basic/ $(MCS_PATH)/../mono/mini/mono --debug tuner.exe $(DLL_TO_TUNE) $(TUNED_DLL)
+	mono --debug tuner.exe $(DLL_TO_TUNE) $(TUNED_DLL)
 	-cp $(DLL_TO_TUNE).mdb $(TUNED_DLL).mdb
 	
 install-moonlight: tune

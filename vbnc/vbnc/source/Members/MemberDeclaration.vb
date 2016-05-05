@@ -28,17 +28,6 @@ Public MustInherit Class MemberDeclaration
     Private m_Name As String
     Private m_GeneratedCode As Boolean
 
-    Overridable Sub UpdateDefinition()
-
-    End Sub
-
-    Public Overrides Sub Initialize(ByVal Parent As BaseObject)
-        MyBase.Initialize(Parent)
-
-        If m_CustomAttributes IsNot Nothing Then m_CustomAttributes.Initialize(Me)
-        Helper.Assert(m_Name IsNot Nothing)
-    End Sub
-
     ReadOnly Property GeneratedCode() As Boolean
         Get
             Return m_GeneratedCode
@@ -79,6 +68,15 @@ Public MustInherit Class MemberDeclaration
         If m_Name Is Nothing Then Throw New InternalException(Me.Location.ToString(Compiler))
     End Sub
 
+    Public Overrides Function CreateDefinition() As Boolean Implements IMember.CreateDefinition
+        Dim result As Boolean = True
+
+        result = MyBase.CreateDefinition AndAlso result
+        If m_CustomAttributes IsNot Nothing Then m_CustomAttributes.SetParent(Me)
+
+        Return result
+    End Function
+
     Protected Sub Rename(ByVal Name As String)
         m_Name = Name
         If MemberDescriptor IsNot Nothing Then
@@ -94,6 +92,11 @@ Public MustInherit Class MemberDeclaration
             m_CustomAttributes = value
         End Set
     End Property
+
+    Public Function FindAttributes(ByVal Type As TypeReference) As Generic.List(Of Attribute)
+        If m_CustomAttributes Is Nothing Then Return Nothing
+        Return m_CustomAttributes.FindAttributes(Type)
+    End Function
 
     Public Sub AddCustomAttribute(ByVal Attribute As Attribute)
         If m_CustomAttributes Is Nothing Then
@@ -164,6 +167,5 @@ Public MustInherit Class MemberDeclaration
 
         Return result
     End Function
-
-
 End Class
+

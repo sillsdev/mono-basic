@@ -116,6 +116,23 @@ Public MustInherit Class Expression
         End If
     End Function
 
+    Function IsSharedContext() As Boolean
+        Dim p As ParsedObject
+        Dim td As TypeDeclaration
+        Dim md As MethodDeclaration
+
+        p = Parent
+        While p IsNot Nothing
+            md = TryCast(p, MethodDeclaration)
+            If md IsNot Nothing Then Return md.IsShared
+            td = TryCast(p, TypeDeclaration)
+            If td IsNot Nothing Then Return td.IsShared
+            p = p.Parent
+        End While
+
+        Return False
+    End Function
+
     ''' <summary>
     ''' The classification of this expression
     ''' </summary>
@@ -145,40 +162,23 @@ Public MustInherit Class Expression
         MyBase.New(Parent)
     End Sub
 
-    ''' <summary>
-    ''' The default implementation returns false.
-    ''' </summary>
-    ''' <value></value>
-    ''' <remarks></remarks>
-    Overridable ReadOnly Property IsConstant() As Boolean
-        Get
-            Return False 'm_Classification.IsConstant
-        End Get
-    End Property
-
-    ''' <summary>
-    ''' The default implementation throws an internal exception.
-    ''' </summary>
-    ''' <value></value>
-    ''' <remarks></remarks>
-    Overridable ReadOnly Property ConstantValue() As Object
-        Get
-            Helper.Assert(m_Classification IsNot Nothing)
-            Return m_Classification.ConstantValue
-        End Get
-    End Property
+    Overridable Function GetConstant(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        If ShowError Then Show30059()
+        Return False
+    End Function
 
     Friend NotOverridable Overrides Function GenerateCode(ByVal Info As EmitInfo) As Boolean
         Dim result As Boolean = True
+        Dim constant As Object = Nothing
 
         Try
-            If Me.IsConstant Then
+            If GetConstant(constant, False) Then
                 If Helper.CompareType(Me.ExpressionType, Compiler.TypeCache.Nothing) Then
-                    Emitter.EmitLoadValue(Info, Me.ConstantValue)
+                    Emitter.EmitLoadValue(Info, constant)
                 ElseIf Info.DesiredType IsNot Nothing AndAlso CecilHelper.IsByRef(Info.DesiredType) Then
-                    Emitter.EmitLoadValueAddress(Info, Me.ConstantValue)
+                    Emitter.EmitLoadValueAddress(Info, constant)
                 Else
-                    Emitter.EmitLoadValue(Info.Clone(Me, Me.ExpressionType), Me.ConstantValue)
+                    Emitter.EmitLoadValue(Info.Clone(Me, Me.ExpressionType), constant)
                 End If
             ElseIf TypeOf Me.Classification Is MethodGroupClassification Then
                 result = Me.Classification.AsMethodGroupClassification.GenerateCode(Info) AndAlso result
@@ -300,23 +300,18 @@ Public MustInherit Class Expression
         Return ResolveExpression(Info)
     End Function
 
-    Overridable Function Clone(Optional ByVal NewParent As ParsedObject = Nothing) As Expression
-        Compiler.Report.ShowMessage(Messages.VBNC99997, Me.Location)
-        Return Nothing
-    End Function
-
     Protected Overridable Function ResolveExpressionInternal(ByVal Info As ResolveInfo) As Boolean
         Return Compiler.Report.ShowMessage(Messages.VBNC99997, Me.Location)
     End Function
 
-    Function ResolveAddressOfExpression(ByVal DelegateType As Mono.Cecil.TypeReference) As Boolean
+    Function ResolveAddressOfExpression(ByVal DelegateType As Mono.Cecil.TypeReference, ByVal ShowErrors As Boolean) As Boolean
         Dim result As Boolean = True
         Dim aoe As AddressOfExpression = TryCast(Me, AddressOfExpression)
 
         If aoe Is Nothing Then
             result = False
         Else
-            result = aoe.Resolve(DelegateType) AndAlso result
+            result = aoe.Resolve(DelegateType, ShowErrors) AndAlso result
         End If
 
         Return result
@@ -444,7 +439,8 @@ Public MustInherit Class Expression
             Case ExpressionClassification.Classifications.EventAccess
                 Throw New InternalException(Me)
             Case ExpressionClassification.Classifications.Void
-                Throw New InternalException(Me)
+                Compiler.Report.ShowMessage(Messages.VBNC30491, Me.Location)
+                Return Nothing
             Case ExpressionClassification.Classifications.Type
                 Dim exp As Expression = Nothing
                 If m_Classification.AsTypeClassification.CreateAliasExpression(Me, exp) = False Then
@@ -487,3 +483,4 @@ Public MustInherit Class Expression
         End Get
     End Property
 End Class
+

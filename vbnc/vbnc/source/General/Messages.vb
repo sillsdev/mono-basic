@@ -30,6 +30,13 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC2001 = 2001
 
     ''' <summary>
+    ''' VBNC = "response file '{0}' included multiple times"
+    ''' VB   = "(No corresponding vbc error)"
+    ''' </summary>
+    ''' <remarks></remarks>
+    <Message(MessageLevel.Error)> VBNC2003 = 2003
+
+    ''' <summary>
     ''' VBNC = "Option '{0}' requires ':{1}'"
     ''' VB   = "option '%s' requires ':%s'"
     ''' </summary>
@@ -58,8 +65,15 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC2011 = 2011
 
     ''' <summary>
-    ''' VBNC = "The response file '{0}' has already been included"
-    ''' VB   = "response file '%s' included multiple times"
+    ''' VBNC = "can't open '{0}' for writing"
+    ''' VB   = "can't open '%s' for writing"
+    ''' </summary>
+    ''' <remarks></remarks>
+    <Message(MessageLevel.Error)> VBNC2012 = 2012
+
+    ''' <summary>
+    ''' VBNC = "the value '{0}' is invalid for option '{1}'"
+    ''' VB   = "(No corresponding vbc error)"
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC2014 = 2014
@@ -100,7 +114,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30001 = 30001
 
     ''' <summary>
-    ''' VBNC = "Could not find the type '{0}'."
+    ''' VBNC = "Type '{0}' is not defined."
     ''' VB   = "Type '|1' is not defined."
     ''' </summary>
     ''' <remarks></remarks>
@@ -219,7 +233,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30019 = 30019
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "'Is' operator does not accept operands of type '{0}'. Operands must be reference or nullable types."
     ''' VB   = "'Is' requires operands that have reference types, but this operand has the value type '|1'."
     ''' </summary>
     ''' <remarks></remarks>
@@ -233,14 +247,14 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30021 = 30021
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Properties declared 'ReadOnly' cannot have a 'Set'."
     ''' VB   = "Properties declared 'ReadOnly' cannot have a 'Set'."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC30022 = 30022
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Properties declared 'WriteOnly' cannot have a 'Get'."
     ''' VB   = "Properties declared 'WriteOnly' cannot have a 'Get'."
     ''' </summary>
     ''' <remarks></remarks>
@@ -345,7 +359,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30037 = 30037
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Option Strict On prohibits operands of type Object for operator '{0}'."
     ''' VB   = "Option Strict On prohibits operands of type Object for operator '|1'."
     ''' </summary>
     ''' <remarks></remarks>
@@ -436,7 +450,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30053 = 30053
 
     ''' <summary>
-    ''' VBNC = "Too many arguments provided to '{0}'."
+    ''' VBNC = "Too many arguments to '{0}'."
     ''' VB   = "Too many arguments to '|1'."
     ''' </summary>
     ''' <remarks></remarks>
@@ -471,7 +485,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30062 = 30062
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "'ReadOnly' variable cannot be the target of an assignment."
     ''' VB   = "'ReadOnly' variable cannot be the target of an assignment."
     ''' </summary>
     ''' <remarks></remarks>
@@ -499,7 +513,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30067 = 30067
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Expression is a value and therefore cannot be the target of an assignment."
     ''' VB   = "Expression is a value and therefore cannot be the target of an assignment."
     ''' </summary>
     ''' <remarks></remarks>
@@ -513,7 +527,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30069 = 30069
 
     ''' <summary>
-    ''' VBNC = "The variable specified after Next doesn't match the variable specified in the for loop ({0})."
+    ''' VBNC = "Next control variable does not match For loop control variable '{0}'."
     ''' VB   = "Next control variable does not match For loop control variable '|1'."
     ''' </summary>
     ''' <remarks></remarks>
@@ -534,7 +548,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30072 = 30072
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Constant cannot be the target of an assignment."
     ''' VB   = "Constant cannot be the target of an assignment."
     ''' </summary>
     ''' <remarks></remarks>
@@ -674,7 +688,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30098 = 30098
 
     ''' <summary>
-    ''' VBNC = "This 'Exit Select' statement is not contained within a 'Select' statement."
+    ''' VBNC = "'Exit Select' can only appear inside a 'Select' statement."
     ''' VB   = "'Exit Select' can only appear inside a 'Select' statement."
     ''' </summary>
     ''' <remarks></remarks>
@@ -695,14 +709,14 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30103 = 30103
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Number of indices is less than the number of dimensions of the indexed array."
     ''' VB   = "Number of indices is less than the number of dimensions of the indexed array."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC30105 = 30105
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Number of indices exceeds the number of dimensions of the indexed array."
     ''' VB   = "Number of indices exceeds the number of dimensions of the indexed array."
     ''' </summary>
     ''' <remarks></remarks>
@@ -779,21 +793,21 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30123 = 30123
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Property without a 'ReadOnly' or 'WriteOnly' specifier must provide both a 'Get' and a 'Set'."
     ''' VB   = "Property without a 'ReadOnly' or 'WriteOnly' specifier must provide both a 'Get' and a 'Set'."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC30124 = 30124
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "'WriteOnly' property must provide a 'Set'."
     ''' VB   = "'WriteOnly' property must provide a 'Set'."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC30125 = 30125
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "'ReadOnly' property must provide a 'Get'."
     ''' VB   = "'ReadOnly' property must provide a 'Get'."
     ''' </summary>
     ''' <remarks></remarks>
@@ -835,7 +849,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30131 = 30131
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Label '{0}' is not defined."
     ''' VB   = "Label '|1' is not defined."
     ''' </summary>
     ''' <remarks></remarks>
@@ -1031,14 +1045,14 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30181 = 30181
 
     ''' <summary>
-    ''' VBNC = "Epxected type."
+    ''' VBNC = "Type expected."
     ''' VB   = "Type expected."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC30182 = 30182
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Keyword is not valid as an identifier."
     ''' VB   = "Keyword is not valid as an identifier."
     ''' </summary>
     ''' <remarks></remarks>
@@ -1143,7 +1157,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30202 = 30202
 
     ''' <summary>
-    ''' VBNC = "Not valid as identifier."
+    ''' VBNC = "Identifier expected."
     ''' VB   = "Identifier expected."
     ''' </summary>
     ''' <remarks></remarks>
@@ -1157,7 +1171,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30204 = 30204
 
     ''' <summary>
-    ''' VBNC = "Expected end of statement."
+    ''' VBNC = "End of statement expected."
     ''' VB   = "End of statement expected."
     ''' </summary>
     ''' <remarks></remarks>
@@ -1213,7 +1227,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30215 = 30215
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "String constant expected."
     ''' VB   = "String constant expected."
     ''' </summary>
     ''' <remarks></remarks>
@@ -1360,14 +1374,14 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30247 = 30247
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
-    ''' VB   = "'If', 'ElseIf', 'Else', 'End If', or 'Const' expected."
+    ''' VBNC = "'If', 'ElseIf', 'Else', 'End If', 'Const', or 'Region' expected."
+    ''' VB   = "'If', 'ElseIf', 'Else', 'End If', 'Const', or 'Region' expected."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC30248 = 30248
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "'=' expected."
     ''' VB   = "'=' expected."
     ''' </summary>
     ''' <remarks></remarks>
@@ -1500,7 +1514,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30278 = 30278
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Enum '{0}' must contain at least one member."
     ''' VB   = "Enum '|1' must contain at least one member."
     ''' </summary>
     ''' <remarks></remarks>
@@ -1668,28 +1682,28 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30310 = 30310
 
     ''' <summary>
-    ''' VBNC = "Cannot convert from '{0}' to '{1}'."
+    ''' VBNC = "Value of type '{0}' cannot be converted to '{1}'."
     ''' VB   = "Value of type '|1' cannot be converted to '|2'."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC30311 = 30311
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "'Case' cannot follow a 'Case Else' in the same 'Select' statement."
     ''' VB   = "'Case' cannot follow a 'Case Else' in the same 'Select' statement."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC30321 = 30321
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Value of type '{0}' cannot be converted to '{1}' because '{2}' is not derived from '{3}'."
     ''' VB   = "Value of type '|1' cannot be converted to '|2' because '|3' is not derived from '|4'."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC30332 = 30332
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Value of type '{0}' cannot be converted to '{1}' because '{2}' is not a reference type."
     ''' VB   = "Value of type '|1' cannot be converted to '|2' because '|3' is not a reference type."
     ''' </summary>
     ''' <remarks></remarks>
@@ -1780,7 +1794,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30366 = 30366
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Class '{0}' cannot be indexed because it has no default property."
     ''' VB   = "Class '|1' cannot be indexed because it has no default property."
     ''' </summary>
     ''' <remarks></remarks>
@@ -1794,7 +1808,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30368 = 30368
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Cannot refer to an instance member of a class from within a shared method or shared member initializer without an explicit instance of the class."
     ''' VB   = "Cannot refer to an instance member of a class from within a shared method or shared member initializer without an explicit instance of the class."
     ''' </summary>
     ''' <remarks></remarks>
@@ -1983,7 +1997,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30413 = 30413
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Value of type '{0}' cannot be converted to '{1}' because the array types have different number of dimensions."
     ''' VB   = "Value of type '|1' cannot be converted to '|2' because the array types have different numbers of dimensions."
     ''' </summary>
     ''' <remarks></remarks>
@@ -2102,14 +2116,14 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30442 = 30442
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "'Get' is already declared."
     ''' VB   = "'Get' is already declared."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC30443 = 30443
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "'Set' is already declared."
     ''' VB   = "'Set' is already declared."
     ''' </summary>
     ''' <remarks></remarks>
@@ -2123,14 +2137,14 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30445 = 30445
 
     ''' <summary>
-    ''' VBNC = "Could not resolve the name '{0}'"
+    ''' VBNC = "'{0}' is not declared. It may be inaccessible due to its protection level."
     ''' VB   = "Name '|1' is not declared."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC30451 = 30451
 
     ''' <summary>
-    ''' VBNC = "Operator '{0}' is not defined for the types '{1}' and '{2}'."
+    ''' VBNC = "Operator '{0}' is not defined for types '{1}' and '{2}'."
     ''' VB   = "Operator '|1' is not defined for types '|2' and '|3'."
     ''' </summary>
     ''' <remarks></remarks>
@@ -2207,7 +2221,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30467 = 30467
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Type declaration characters are not valid in this context."
     ''' VB   = "Type declaration characters are not valid in this context."
     ''' </summary>
     ''' <remarks></remarks>
@@ -2256,7 +2270,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30479 = 30479
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Shared 'Sub New' cannot be declared '{0}'."
     ''' VB   = "Shared 'Sub New' cannot be declared '|1'."
     ''' </summary>
     ''' <remarks></remarks>
@@ -2270,7 +2284,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30481 = 30481
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Operator '{0}' is not defined for type '{1}'."
     ''' VB   = "Operator '|1' is not defined for type '|2'."
     ''' </summary>
     ''' <remarks></remarks>
@@ -2389,14 +2403,14 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30509 = 30509
 
     ''' <summary>
-    ''' VBNC = "Option Strict On does not allow implicit conversions from '{0}' to '{1}'."
+    ''' VBNC = "Option Strict On disallows implicit conversions from '{0}' to '{1}'."
     ''' VB   = "Option Strict On disallows implicit conversions from '|1' to '|2'."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC30512 = 30512
 
     ''' <summary>
-    ''' VBNC = "Overload resolution failed because no '{0}' is accessible with the specified number of arguments."
+    ''' VBNC = "Overload resolution failed because no accessible '{0}' accepts this number of arguments."
     ''' VB   = "Overload resolution failed because no accessible '|1' accepts this number of arguments."
     ''' </summary>
     ''' <remarks></remarks>
@@ -2410,14 +2424,14 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30517 = 30517
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Overload resolution failed because no accessible '{0}' can be called with these arguments:{1}"
     ''' VB   = "Overload resolution failed because no accessible '|1' can be called with these arguments:|2"
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC30518 = 30518
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Overload resolution failed because no accessible '{0}' can be called without a narrowing conversion:{1}"
     ''' VB   = "Overload resolution failed because no accessible '|1' can be called without a narrowing conversion:|2"
     ''' </summary>
     ''' <remarks></remarks>
@@ -2571,7 +2585,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30560 = 30560
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "'{0}' is ambiguous, imported from the namespaces or types '{1}'."
     ''' VB   = "'|1' is ambiguous, imported from the namespaces or types '|2'."
     ''' </summary>
     ''' <remarks></remarks>
@@ -2711,14 +2725,14 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30585 = 30585
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Named argument cannot match a ParamArray parameter."
     ''' VB   = "Named argument cannot match a ParamArray parameter."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Error)> VBNC30587 = 30587
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Omitted argument cannot match a ParamArray parameter."
     ''' VB   = "Omitted argument cannot match a ParamArray parameter."
     ''' </summary>
     ''' <remarks></remarks>
@@ -2900,7 +2914,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30622 = 30622
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "'End Namespace' must be preceded by a matching 'Namespace'."
     ''' VB   = "'End Namespace' must be preceded by a matching 'Namespace'."
     ''' </summary>
     ''' <remarks></remarks>
@@ -3068,7 +3082,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30647 = 30647
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "String constants must end with a double quote."
     ''' VB   = "String constants must end with a double quote."
     ''' </summary>
     ''' <remarks></remarks>
@@ -3082,7 +3096,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC30649 = 30649
 
     ''' <summary>
-    ''' VBNC = "Invalid enum type."
+    ''' VBNC = "Enums must be declared as an integral type."
     ''' VB   = "Enums must be declared as an integral type."
     ''' </summary>
     ''' <remarks></remarks>
@@ -4279,7 +4293,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC31014 = 31014
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Unable to write to output file '{0}': {1}"
     ''' VB   = "Unable to write to output file '|1': |0"
     ''' </summary>
     ''' <remarks></remarks>
@@ -4559,7 +4573,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC31071 = 31071
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Warning treated as error : {0}"
     ''' VB   = "Warning treated as error : |1"
     ''' </summary>
     ''' <remarks></remarks>
@@ -4643,7 +4657,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC31086 = 31086
 
     ''' <summary>
-    ''' VBNC = "A variable can't declare array modifiers both on the variable name and on the type."
+    ''' VBNC = "Array modifiers cannot be specified on both a variable and its type."
     ''' VB   = "Array modifiers cannot be specified on both a variable and its type."
     ''' </summary>
     ''' <remarks></remarks>
@@ -4937,7 +4951,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC31418 = 31418
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "'IsNot' requires operands that have reference types, but this operand has the value type '{0}'."
     ''' VB   = "'IsNot' requires operands that have reference types, but this operand has the value type '|1'."
     ''' </summary>
     ''' <remarks></remarks>
@@ -5147,7 +5161,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC31526 = 31526
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Local variable '{0}' cannot be referred to before it is declared."
     ''' VB   = "Local variable '|1' cannot be referred to before it is declared."
     ''' </summary>
     ''' <remarks></remarks>
@@ -5224,7 +5238,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC32012 = 32012
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Option Strict On disallows operands of type Object for operator '{0}'. Use the 'Is' operator to test for object identity."
     ''' VB   = "Option Strict On disallows operands of type Object for operator '|1'. Use the 'Is' operator to test for object identity."
     ''' </summary>
     ''' <remarks></remarks>
@@ -5273,7 +5287,7 @@ Public Enum Messages
     <Message(MessageLevel.Error)> VBNC32020 = 32020
 
     ''' <summary>
-    ''' VBNC = "CHANGEME"
+    ''' VBNC = "Parameter '{0}' in '{1}' already has a matching omitted argument."
     ''' VB   = "Parameter '|1' in '|2' already has a matching omitted argument."
     ''' </summary>
     ''' <remarks></remarks>
@@ -6505,7 +6519,7 @@ Public Enum Messages
     <Message(MessageLevel.Warning)> VBNC40041 = 40041
 
     ''' <summary>
-    ''' VBNC = "The import '{0}' could not be found."
+    ''' VBNC = "Namespace or type specified in the Imports '{0}' doesn't contain any public member or cannot be found. Make sure the namespace or the type is defined and contains at least one public member. Make sure the imported element name doesn't use any aliases."
     ''' VB   = "Namespace or type specified in the Imports 'Foo' doesn't contain any public member or cannot be found. Make sure the namespace or the type is defined and contains at least one public member. Make sure the imported element name doesn't use any aliases."
     ''' </summary>
     ''' <remarks></remarks>
@@ -6596,15 +6610,22 @@ Public Enum Messages
     <Message(MessageLevel.Warning)> VBNC42015 = 42015
 
     ''' <summary>
-    ''' VBNC = "Variable declaration without an 'As' clause; Object type assumed."
+    ''' VBNC = "Variable declaration without an 'As' clause; type of Object assumed."
     ''' VB   = "Variable declaration without an 'As' clause; type of Object assumed."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Warning)> VBNC42020 = 42020
 
     ''' <summary>
-    ''' VBNC = "Function without an 'As' clause; Object return type assumed."
+    ''' VBNC = "Function without an 'As' clause; return type of Object assumed."
     ''' VB   = "Function without an 'As' clause; return type of Object assumed."
+    ''' </summary>
+    ''' <remarks></remarks>
+    <Message(MessageLevel.Warning)> VBNC42021 = 42021
+
+    ''' <summary>
+    ''' VBNC = "Unused local variable: '{0}'."
+    ''' VB   = "Unused local variable: '|1'."
     ''' </summary>
     ''' <remarks></remarks>
     <Message(MessageLevel.Warning)> VBNC42024 = 42024

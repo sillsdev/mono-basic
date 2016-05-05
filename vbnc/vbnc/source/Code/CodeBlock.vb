@@ -374,7 +374,7 @@ Public Class CodeBlock
 
         'create the catch block
         Info.ILGen.BeginCatchBlock(CType(Nothing, Mono.Cecil.TypeReference))
-        Emitter.EmitCastClass(Info, Compiler.TypeCache.System_Object, Compiler.TypeCache.System_Exception)
+        Emitter.EmitCastClass(Info, Compiler.TypeCache.System_Exception)
         Emitter.EmitCall(Info, Compiler.TypeCache.MS_VB_CS_ProjectData__SetProjectError_Exception)
         Emitter.EmitLeave(Info, VB_ActiveHandlerLabel)
 
@@ -508,6 +508,7 @@ Public Class CodeBlock
             Dim var As LocalVariableDeclaration = m_Variables(i)
             result = CreateLabelForCurrentInstruction(Info) AndAlso result
             result = var.DefineLocalVariable(Info) AndAlso result
+            result = var.CreateDefinition AndAlso result
         Next
 
         For i As Integer = 0 To m_Sequence.Count - 1
@@ -539,13 +540,6 @@ Public Class CodeBlock
             End If
         End Get
     End Property
-
-    Public Overrides Sub Initialize(ByVal Parent As BaseObject)
-        MyBase.Initialize(Parent)
-
-        If m_Variables IsNot Nothing Then m_Variables.Initialize(Me)
-        If m_Statements IsNot Nothing Then m_Statements.Initialize(Me)
-    End Sub
 
     Public Overrides Function ResolveTypeReferences() As Boolean
         Dim result As Boolean = True
@@ -582,6 +576,13 @@ Public Class CodeBlock
             counter += 1
         End While
 
+        'Warn about unused local variables
+        For Each Var As VariableDeclaration In Variables
+            'VBC doesn't warn for unused variables if they are initialised 
+            If Not Var.IsReferenced AndAlso Not Var.HasInitializer Then
+                result = Compiler.Report.ShowMessage(Messages.VBNC42024, Var.Location, Var.Name) AndAlso result
+            End If
+        Next
         Return result
     End Function
 
@@ -599,3 +600,4 @@ Public Class CodeBlock
         End If
     End Function
 End Class
+

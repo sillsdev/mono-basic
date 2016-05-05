@@ -42,7 +42,7 @@ Public Class MethodPointerClassification
 
     ReadOnly Property Resolved() As Boolean
         Get
-            Return m_resolved
+            Return m_Resolved
         End Get
     End Property
 
@@ -59,7 +59,7 @@ Public Class MethodPointerClassification
         Helper.Assert(m_ResolvedMethod IsNot Nothing)
         Helper.Assert(m_DelegateType IsNot Nothing)
 
-        If m_MethodGroup.InstanceExpression IsNot Nothing Then
+        If m_MethodGroup.InstanceExpression IsNot Nothing AndAlso CecilHelper.IsStatic(m_ResolvedMethod) = False Then
             result = m_MethodGroup.InstanceExpression.GenerateCode(Info.Clone(Parent, True, False, m_MethodGroup.InstanceExpression.ExpressionType)) AndAlso result
             Emitter.EmitDup(Info)
         Else
@@ -82,7 +82,7 @@ Public Class MethodPointerClassification
     ''' </summary>
     ''' <returns></returns>
     ''' <remarks></remarks>
-    Function Resolve(ByVal DelegateType As Mono.Cecil.TypeReference) As Boolean
+    Function Resolve(ByVal DelegateType As Mono.Cecil.TypeReference, ByVal ShowErrors As Boolean) As Boolean
         Dim result As Boolean = True
 
         Helper.Assert(DelegateType IsNot Nothing)
@@ -93,10 +93,11 @@ Public Class MethodPointerClassification
         End If
 
         If Helper.IsDelegate(Compiler, DelegateType) = False Then
-            result = Compiler.Report.ShowMessage(Messages.VBNC30581, Me.Parent.Location, DelegateType.FullName) AndAlso result
+            If ShowErrors Then
+                Compiler.Report.ShowMessage(Messages.VBNC30581, Me.Parent.Location, DelegateType.FullName)
+            End If
+            Return False
         End If
-
-        If result = False Then Return result
 
         Dim params As Mono.Collections.Generic.Collection(Of ParameterDefinition) = Helper.GetDelegateArguments(Compiler, DelegateType)
         Dim paramtypes() As Mono.Cecil.TypeReference = Helper.GetParameterTypes(params)
@@ -105,10 +106,19 @@ Public Class MethodPointerClassification
         m_DelegateType = DelegateType
 
         If m_ResolvedMethod Is Nothing Then
-            For i As Integer = 0 To m_MethodGroup.Group.Count - 1
-                Compiler.Report.ShowMessage(Messages.VBNC30408, Me.Parent.Location, Helper.ToString(Me.Parent, m_MethodGroup.Group(i)), Helper.ToString(Me.Parent, DelegateType))
-            Next
+            If ShowErrors Then
+                For i As Integer = 0 To m_MethodGroup.Group.Count - 1
+                    Compiler.Report.ShowMessage(Messages.VBNC30408, Me.Parent.Location, Helper.ToString(Me.Parent, m_MethodGroup.Group(i)), Helper.ToString(Me.Parent, DelegateType))
+                Next
+            End If
             result = False
+        Else
+            If m_MethodGroup.InstanceExpression Is Nothing AndAlso CecilHelper.IsStatic(m_ResolvedMethod) = False Then
+                If ShowErrors Then
+                    Compiler.Report.ShowMessage(Messages.VBNC30469, Parent.Location)
+                End If
+                Return False
+            End If
         End If
 
         m_Resolved = True
@@ -152,3 +162,4 @@ Public Class MethodPointerClassification
         m_MethodGroup = MethodGroup
     End Sub
 End Class
+

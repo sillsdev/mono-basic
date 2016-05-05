@@ -33,6 +33,27 @@ Public Class Is_IsNotExpression
     Protected Overrides Function ResolveExpressionInternal(ByVal Info As ResolveInfo) As Boolean
         Dim result As Boolean = True
 
+        result = MyBase.ResolveExpressions(Info) AndAlso result
+
+        If Not result Then Return False
+
+        If CecilHelper.IsValueType(m_LeftExpression.ExpressionType) AndAlso CecilHelper.IsNullable(m_LeftExpression.ExpressionType) = False Then
+            If Keyword = KS.Is Then
+                Compiler.Report.ShowMessage(Messages.VBNC30020, Me.Location, Helper.ToString(Compiler, m_LeftExpression.ExpressionType))
+            Else
+                Compiler.Report.ShowMessage(Messages.VBNC31419, Me.Location, Helper.ToString(Compiler, m_LeftExpression.ExpressionType))
+            End If
+        End If
+        If CecilHelper.IsValueType(m_RightExpression.ExpressionType) AndAlso CecilHelper.IsNullable(m_RightExpression.ExpressionType) = False Then
+            If Keyword = KS.Is Then
+                Compiler.Report.ShowMessage(Messages.VBNC30020, Me.Location, Helper.ToString(Compiler, m_RightExpression.ExpressionType))
+            Else
+                Compiler.Report.ShowMessage(Messages.VBNC31419, Me.Location, Helper.ToString(Compiler, m_RightExpression.ExpressionType))
+            End If
+        End If
+
+        If result = False Then Return False
+
         result = MyBase.ResolveExpressionInternal(Info) AndAlso result
 
         If result AndAlso CecilHelper.IsGenericParameter(m_LeftExpression.ExpressionType) Then
@@ -89,6 +110,22 @@ Public Class Is_IsNotExpression
         Return result
     End Function
 
+    Public Overrides Function GetConstant(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim rvalue As Object = Nothing
+        Dim lvalue As Object = Nothing
+
+        If Not m_LeftExpression.GetConstant(lvalue, ShowError) Then Return False
+        If Not m_RightExpression.GetConstant(rvalue, ShowError) Then Return False
+
+        If lvalue Is Nothing Or rvalue Is Nothing Then
+            result = True
+            Return True
+        End If
+
+        If ShowError Then Show30059()
+        Return False
+    End Function
+
     Overrides ReadOnly Property ExpressionType() As Mono.Cecil.TypeReference
         Get
             Return Compiler.TypeCache.System_Boolean
@@ -101,12 +138,6 @@ Public Class Is_IsNotExpression
         Helper.Assert(m_Keyword = KS.Is OrElse m_Keyword = KS.IsNot)
     End Sub
 
-    Public Overrides ReadOnly Property IsConstant() As Boolean
-        Get
-            Return False
-        End Get
-    End Property
-
     Public Overrides ReadOnly Property Keyword() As KS
         Get
             Helper.Assert(m_Keyword = KS.Is OrElse m_Keyword = KS.IsNot)
@@ -114,3 +145,4 @@ Public Class Is_IsNotExpression
         End Get
     End Property
 End Class
+

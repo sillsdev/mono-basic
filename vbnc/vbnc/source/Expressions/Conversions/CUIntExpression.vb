@@ -32,6 +32,11 @@ Public Class CUIntExpression
         Return GenerateCode(Me, Info)
     End Function
 
+    Public Overrides Function GetConstant(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        If Not Expression.GetConstant(result, ShowError) Then Return False
+        Return ConvertToUInt32(result, ShowError)
+    End Function
+
     Protected Overrides Function ResolveExpressionInternal(ByVal Info As ResolveInfo) As Boolean
         Dim result As Boolean = True
 
@@ -52,6 +57,8 @@ Public Class CUIntExpression
 
         result = ValidateForNullable(Info, Conversion, expTypeCode, expType) AndAlso result
 
+        If Conversion.GetConstant(Nothing, False) Then Return result
+
         Select Case expTypeCode
             Case TypeCode.Char
                 Info.Compiler.Report.ShowMessage(Messages.VBNC32006, Expression.Location, Helper.ToString(Expression, expType))
@@ -67,8 +74,13 @@ Public Class CUIntExpression
                 Else
                     result = Conversion.FindUserDefinedConversionOperator() AndAlso result
                 End If
+            Case TypeCode.UInt32, TypeCode.Int32, TypeCode.Int16, TypeCode.Byte, TypeCode.SByte, TypeCode.UInt16
+                'Implicitly convertible
+            Case Else
+                If Conversion.IsExplicit = False AndAlso Conversion.Location.File(Conversion.Compiler).IsOptionStrictOn Then
+                    result = Conversion.Compiler.Report.ShowMessage(Messages.VBNC30512, Conversion.Location, Helper.ToString(Conversion, expType), Helper.ToString(Conversion, ExpressionType)) AndAlso result
+                End If
         End Select
-
 
         Return result
     End Function
@@ -131,33 +143,10 @@ Public Class CUIntExpression
         Return result
     End Function
 
-    Public Overrides ReadOnly Property ConstantValue() As Object
-        Get
-            Dim tpCode As TypeCode
-            Dim originalValue As Object
-            originalValue = Expression.ConstantValue
-            tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, originalValue))
-            Select Case tpCode
-                Case TypeCode.Boolean, TypeCode.Byte, TypeCode.UInt16, TypeCode.UInt32
-                    Return CUInt(originalValue) 'No range checking needed.
-                Case TypeCode.SByte, TypeCode.Int16, TypeCode.Int32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Single, TypeCode.Double, TypeCode.Decimal, TypeCode.DBNull
-                    Dim resultvalue As Object = 0
-                    If Compiler.TypeResolution.CheckNumericRange(originalValue, resultvalue, ExpressionType) Then
-                        Return resultvalue
-                    Else
-                        Compiler.Report.ShowMessage(Messages.VBNC30439, Location, Helper.ToString(Expression, ExpressionType))
-                        Return New UInteger
-                    End If
-                Case Else
-                    Compiler.Report.ShowMessage(Messages.VBNC30060, Location, originalValue.ToString, Helper.ToString(Expression, ExpressionType))
-                    Return New UInteger
-            End Select
-        End Get
-    End Property
-
     Overrides ReadOnly Property ExpressionType() As Mono.Cecil.TypeReference
         Get
             Return Compiler.TypeCache.System_UInt32
         End Get
     End Property
 End Class
+

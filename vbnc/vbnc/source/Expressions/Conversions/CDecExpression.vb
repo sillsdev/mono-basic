@@ -41,7 +41,12 @@ Public Class CDecExpression
 
         Return result
     End Function
-    
+
+    Public Overrides Function GetConstant(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        If Not Expression.GetConstant(result, ShowError) Then Return False
+        Return ConvertToDecimal(result, ShowError)
+    End Function
+
     Shared Function Validate(ByVal Info As ResolveInfo, ByVal Conversion As ConversionExpression) As Boolean
         Dim result As Boolean = True
 
@@ -51,6 +56,8 @@ Public Class CDecExpression
         Dim ExpressionType As TypeReference = Conversion.ExpressionType
 
         result = ValidateForNullable(Info, Conversion, expTypeCode, expType) AndAlso result
+
+        If Conversion.GetConstant(Nothing, False) Then Return result
 
         Select Case expTypeCode
             Case TypeCode.DateTime, TypeCode.Char
@@ -63,6 +70,12 @@ Public Class CDecExpression
                     'OK
                 Else
                     result = Conversion.FindUserDefinedConversionOperator() AndAlso result
+                End If
+            Case TypeCode.Single, TypeCode.Decimal, TypeCode.Double, TypeCode.UInt64, TypeCode.Int64, TypeCode.UInt32, TypeCode.Int32, TypeCode.Int16, TypeCode.Byte, TypeCode.SByte, TypeCode.UInt16
+                'Implicitly convertible
+            Case Else
+                If Conversion.IsExplicit = False AndAlso Conversion.Location.File(Conversion.Compiler).IsOptionStrictOn Then
+                    result = Conversion.Compiler.Report.ShowMessage(Messages.VBNC30512, Conversion.Location, Helper.ToString(Conversion, expType), Helper.ToString(Conversion, ExpressionType)) AndAlso result
                 End If
         End Select
 
@@ -98,9 +111,10 @@ Public Class CDecExpression
             Case TypeCode.Double
                 Emitter.EmitNew(Info, Info.Compiler.TypeCache.System_Decimal__ctor_Double)
             Case TypeCode.Single
-                If Expression.IsConstant Then
+                Dim constant As Object = Nothing
+                If Expression.GetConstant(constant, False) Then
                     'VBC BUG? This seems to be a bug in vbc.exe.
-                    Emitter.EmitLoadDecimalValue(Info, New Decimal(CDbl(Expression.ConstantValue)))
+                    Emitter.EmitLoadDecimalValue(Info, New Decimal(CDbl(constant)))
                 Else
                     'CORRECT CODE.
                     Emitter.EmitNew(Info, Info.Compiler.TypeCache.System_Decimal__ctor_Single)
@@ -122,33 +136,10 @@ Public Class CDecExpression
         Return result
     End Function
 
-    Public Overrides ReadOnly Property ConstantValue() As Object
-        Get
-            Dim tpCode As TypeCode
-            Dim originalValue As Object
-            originalValue = Expression.ConstantValue
-            tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, originalValue))
-            Select Case tpCode
-                Case TypeCode.Boolean, TypeCode.SByte, TypeCode.Byte, TypeCode.Int16, TypeCode.UInt16, TypeCode.Int32, TypeCode.UInt32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Decimal
-                    Return CDec(originalValue) 'No range checking needed.
-                Case TypeCode.Single, TypeCode.Double, TypeCode.DBNull
-                    Dim resultvalue As Object = 0
-                    If Compiler.TypeResolution.CheckNumericRange(originalValue, resultvalue, ExpressionType) Then
-                        Return resultvalue
-                    Else
-                        Compiler.Report.ShowMessage(Messages.VBNC30439, Expression.Location, ExpressionType.ToString)
-                        Return New Decimal
-                    End If
-                Case Else
-                    Compiler.Report.ShowMessage(Messages.VBNC30060, Expression.Location, originalValue.ToString, ExpressionType.ToString)
-                    Return New Decimal
-            End Select
-        End Get
-    End Property
-
     Overrides ReadOnly Property ExpressionType() As Mono.Cecil.TypeReference
         Get
             Return Compiler.TypeCache.System_Decimal
         End Get
     End Property
 End Class
+

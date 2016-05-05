@@ -127,8 +127,8 @@ Public Class Attribute
         Dim result As New Attribute(NewParent)
         result.m_IsAssembly = m_IsAssembly
         result.m_IsModule = m_IsModule
-        If m_SimpleTypeName IsNot Nothing Then result.m_SimpleTypeName = m_SimpleTypeName.Clone(result)
-        If m_AttributeArguments IsNot Nothing Then result.m_AttributeArguments = m_AttributeArguments.Clone(result)
+        If m_SimpleTypeName IsNot Nothing Then result.m_SimpleTypeName = m_SimpleTypeName
+        If m_AttributeArguments IsNot Nothing Then result.m_AttributeArguments = m_AttributeArguments
         result.m_ResolvedType = m_ResolvedType
         result.m_ResolvedTypeConstructor = m_ResolvedTypeConstructor
 
@@ -254,6 +254,7 @@ Public Class Attribute
                     Dim name As String
                     Dim member As Mono.Cecil.MemberReference
                     Dim members As Mono.Collections.Generic.Collection(Of Mono.Cecil.MemberReference)
+                    Dim constant As Object = Nothing
 
                     name = item.Identifier
                     members = cache.LookupFlattenedMembers(name)
@@ -262,6 +263,9 @@ Public Class Attribute
                         Return Compiler.Report.ShowMessage(Messages.VBNC99997, Me.Location)
                     End If
                     member = members(0)
+
+                    If Not item.AttributeArgumentExpression.Expression.GetConstant(constant, True) Then Return False
+
                     If TypeOf member Is Mono.Cecil.FieldReference Then
                         Dim field As Mono.Cecil.FieldReference
                         field = DirectCast(member, Mono.Cecil.FieldReference)
@@ -269,14 +273,14 @@ Public Class Attribute
                         If m_Fields Is Nothing Then m_Fields = New Generic.List(Of Mono.Cecil.FieldReference)
                         If m_FieldValues Is Nothing Then m_FieldValues = New Generic.List(Of Object)
                         m_Fields.Add(field)
-                        m_FieldValues.Add(item.AttributeArgumentExpression.Expression.ConstantValue)
+                        m_FieldValues.Add(constant)
                     ElseIf TypeOf member Is Mono.Cecil.PropertyReference Then
                         Dim prop As Mono.Cecil.PropertyReference
                         prop = DirectCast(member, Mono.Cecil.PropertyReference)
                         If m_Properties Is Nothing Then m_Properties = New Generic.List(Of Mono.Cecil.PropertyReference)
                         If m_PropertyValues Is Nothing Then m_PropertyValues = New Generic.List(Of Object)
                         m_Properties.Add(prop)
-                        m_PropertyValues.Add(item.AttributeArgumentExpression.Expression.ConstantValue)
+                        m_PropertyValues.Add(constant)
                         'm_PropertyValues.add(item.
                     Else
                         Helper.AddError(Me, "Invalid member type for attribute value.")
@@ -305,6 +309,10 @@ Public Class Attribute
 
         Dim groupClassification As New MethodGroupClassification(Me, Nothing, Nothing, Nothing, ctors)
         result = groupClassification.ResolveGroup(argList) AndAlso result
+        If result = False Then
+            groupClassification.ResolveGroup(argList, True)
+            Return result
+        End If
         m_ResolvedTypeConstructor = groupClassification.ResolvedConstructor
         result = m_ResolvedTypeConstructor IsNot Nothing AndAlso result
         result = argList.FillWithOptionalParameters(m_ResolvedTypeConstructor) AndAlso result
@@ -313,7 +321,9 @@ Public Class Attribute
 
         ReDim m_Arguments(argList.Count - 1)
         For i As Integer = 0 To m_Arguments.Length - 1
-            m_Arguments(i) = argList(i).Expression.ConstantValue
+            Dim constant As Object = Nothing
+            If argList(i).Expression.GetConstant(constant, True) = False Then Return False
+            m_Arguments(i) = constant
             If TypeOf m_Arguments(i) Is DBNull Then
                 m_Arguments(i) = Nothing
             End If
@@ -325,19 +335,19 @@ Public Class Attribute
             For i As Integer = 0 To m_Arguments.Length - 1
                 Dim value As Object = Nothing
                 If TypeOf m_Arguments(i) Is TypeReference Then Continue For
-                result = TypeConverter.ConvertTo(Me, m_Arguments(i), parameters(i).ParameterType, value)
+                result = TypeConverter.ConvertTo(Me, m_Arguments(i), parameters(i).ParameterType, value, True)
                 If result Then m_Arguments(i) = value
             Next
             For i As Integer = 0 To m_FieldValues.Count - 1
                 Dim value As Object = Nothing
                 'TypeConverter.ConvertTo will report any errors
-                result = TypeConverter.ConvertTo(Me, m_FieldValues(i), m_Fields(i).FieldType, value)
+                result = TypeConverter.ConvertTo(Me, m_FieldValues(i), m_Fields(i).FieldType, value, True)
                 If result Then m_FieldValues(i) = value
             Next
             For i As Integer = 0 To m_PropertyValues.Count - 1
                 Dim value As Object = Nothing
                 'TypeConverter.ConvertTo will report any errors
-                result = TypeConverter.ConvertTo(Me, m_PropertyValues(i), m_Properties(i).PropertyType, value)
+                result = TypeConverter.ConvertTo(Me, m_PropertyValues(i), m_Properties(i).PropertyType, value, True)
                 If result Then m_PropertyValues(i) = value
             Next
         End If
@@ -482,7 +492,14 @@ Public Class Attribute
                 ElseIf prop IsNot Nothing Then
                     prop.CecilBuilder.CustomAttributes.Add(CecilBuilder)
                 ElseIf param IsNot Nothing Then
-                    param.CecilBuilder.CustomAttributes.Add(CecilBuilder)
+                    If Helper.CompareType(CecilBuilder.Constructor.DeclaringType, Compiler.TypeCache.System_Runtime_InteropServices_OutAttribute) Then
+                        param.CecilBuilder.IsOut = True
+                    ElseIf Helper.CompareType(CecilBuilder.Constructor.DeclaringType, Compiler.TypeCache.System_Runtime_InteropServices_MarshalAsAttribute) Then
+                        param.CecilBuilder.MarshalInfo = New MarshalInfo(CType(CecilBuilder.ConstructorArguments(0).Value, Mono.Cecil.NativeType))
+                        param.CecilBuilder.Attributes = param.CecilBuilder.Attributes Or Mono.Cecil.ParameterAttributes.HasFieldMarshal
+                    Else
+                        param.CecilBuilder.CustomAttributes.Add(CecilBuilder)
+                    End If
                 ElseIf evt IsNot Nothing Then
                     evt.CecilBuilder.CustomAttributes.Add(CecilBuilder)
                 Else
@@ -560,3 +577,4 @@ Public Class Attribute
         Return result
     End Function
 End Class
+

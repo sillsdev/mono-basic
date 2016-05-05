@@ -27,6 +27,9 @@ Public Class Scanner
     Inherits BaseObject
 
     'Useful constants.
+    Private Const nl27 As Char = """"c
+    Private Const nl201C As Char = Microsoft.VisualBasic.ChrW(&H201C)
+    Private Const nl201D As Char = Microsoft.VisualBasic.ChrW(&H201D)
     Private Const nl0 As Char = Microsoft.VisualBasic.ChrW(0)
     Private Const nlA As Char = Microsoft.VisualBasic.ChrW(&HA)
     Private Const nlD As Char = Microsoft.VisualBasic.ChrW(&HD)
@@ -87,14 +90,12 @@ Public Class Scanner
 
     Private m_Files As Generic.Queue(Of CodeFile)
 
-    Private m_Peeked As Token
-
     'Data about the current token
     Private m_LastWasNewline As Boolean
     Private m_Current As Token
     Private m_CurrentTypeCharacter As TypeCharacters.Characters
-    Private m_CurrentTokenType As TokenType
     Private m_CurrentData As Object
+    Private m_Peeked As Token?
 
 #Region "Conditional Compilation"
     'Data related to conditional compilation
@@ -127,7 +128,9 @@ Public Class Scanner
         For i As Integer = 0 To attribs.Count - 1
             Dim attrib As Mono.Cecil.CustomAttribute = attribs(i)
             Dim identifier As String
-
+            If Helper.CompareType(Compiler.TypeCache.System_Diagnostics_ConditionalAttribute, attrib.AttributeType) = False Then
+                Continue For
+            End If
             If attrib.ConstructorArguments.Count <> 1 Then
                 Continue For
             End If
@@ -203,10 +206,11 @@ Public Class Scanner
             Me.EatLine(False)
             Return
         End If
+
         Me.NextUnconditionally()
 
         If m_Current.IsIdentifier = False Then
-            Compiler.Report.ShowMessage(Messages.VBNC30203, GetCurrentLocation())
+            Compiler.Report.ShowMessage(Messages.VBNC30203, m_Current.Location)
             Me.EatLine(False)
             Return
         End If
@@ -214,7 +218,7 @@ Public Class Scanner
         Me.NextUnconditionally()
 
         If m_Current <> KS.Equals Then
-            Helper.AddError(Compiler, GetCurrentLocation, "Expected '='")
+            Compiler.Report.ShowMessage(Messages.VBNC30249, m_Current.Location)
             Return
         End If
         Me.NextUnconditionally()
@@ -341,10 +345,14 @@ Public Class Scanner
             Me.EatLine(False)
             Return
         End If
+
+        'Save the location of the #Region token to use as the location of any missing string literal
+        Dim regionLoc As Span = GetCurrentLocation()
+
         Me.NextUnconditionally()
 
         If Not m_Current.IsStringLiteral Then
-            Helper.AddError(Me, "Expected string literal")
+            Compiler.Report.ShowMessage(Messages.VBNC30217, regionLoc)
             EatLine(False)
             Return
         End If
@@ -459,7 +467,6 @@ Public Class Scanner
             NextUnconditionally()
 
             If m_Current.IsEndOfCode Then
-                m_Peeked = m_Current
                 Return m_Current
             End If
 
@@ -469,7 +476,17 @@ Public Class Scanner
             End If
 
             If TokensSeenOnLine = 1 AndAlso m_Current = KS.Numeral Then
+
                 Me.NextUnconditionally()
+
+                If m_Current.IsEndOfFile Then
+                    ResetCurrentConstants()
+                    Return m_Current
+                ElseIf m_Current.IsEndOfLine Then
+                    EatLine(True)
+                    Return Me.Next()
+                End If
+
                 If m_Current = KS.If Then
                     ParseIf()
                 ElseIf m_Current = KS.Else Then
@@ -485,7 +502,7 @@ Public Class Scanner
                 ElseIf m_Current = KS.End Then
                     ParseEnd()
                 Else
-                    Helper.AddError(Me.Compiler, Me.GetCurrentLocation, "Expected 'If', 'ElseIf', 'Else', 'Const' or 'Region'.")
+                    Compiler.Report.ShowMessage(Messages.VBNC30248, GetCurrentLocation())
                     EatLine(False)
                 End If
             ElseIf IfdOut Then
@@ -500,12 +517,6 @@ Public Class Scanner
             End If
         Loop While m_Current.IsEndOfCode = False AndAlso m_Current.IsEndOfFile = False
         Return m_Current
-    End Function
-
-    Public Function Peek() As Token
-        If Token.IsSomething(m_Peeked) Then Return m_Peeked
-        m_Peeked = Me.Next
-        Return m_Peeked
     End Function
 #End Region
 
@@ -888,20 +899,20 @@ Public Class Scanner
         StringBuilderLength = 0
         Do
             Select Case NextChar()
-                Case """"c '
+                Case nl27, nl201C, nl201D
                     'If " followed by a ", output one "
-                    If NextChar() = """" Then
-                        StringBuilderAppend(""""c)
+                    Dim nc As Char = NextChar()
+                    If nc = nl27 OrElse nc = nl201C OrElse nc = nl201D Then
+                        StringBuilderAppend(nc)
                     Else
                         bEndOfString = True
                     End If
                 Case nlA, nlD, nl2028, nl2029
-                    'vbc accepts this...
-                    Compiler.Report.ShowMessage(Messages.VBNC90003, GetCurrentLocation())
+                    Compiler.Report.ShowMessage(Messages.VBNC30648, GetCurrentLocation)
                     bEndOfString = True
                 Case Else
                     If m_EndOfFile Then
-                        Compiler.Report.ShowMessage(Messages.VBNC90004, GetCurrentLocation())
+                        Compiler.Report.ShowMessage(Messages.VBNC30648, GetCurrentLocation)
                         'PreviousChar() 'Step back
                         bEndOfString = True
                     Else
@@ -1329,13 +1340,17 @@ Public Class Scanner
         Dim Result As Token = Nothing
         Do
             Select Case CurrentChar()
-                Case """"c 'String Literal
+                Case nl27, nl201C, nl201D 'String Literal
                     Result = GetString()
                 Case COMMENTCHAR1, COMMENTCHAR2, COMMENTCHAR3 'VB Comment
                     EatComment()
                 Case nlD, nlA, nl2028, nl2029 'New line
-                    EatNewLine()
+
+                    'Keep the current line of the end of line token to the current line so we get better
+                    'location info for errors and warnings
                     Result = Token.CreateEndOfLineToken(GetCurrentLocation)
+                    EatNewLine()
+
                 Case nl0 'End of file
                     Result = Token.CreateEndOfFileToken(GetCurrentLocation)
                 Case ":"c ':
@@ -1582,9 +1597,12 @@ Public Class Scanner
     End Sub
 
     Public Sub NextUnconditionally()
+        Dim lastTokenType As TokenType
+        Dim lastKS As KS
 
-        If Token.IsSomething(m_Peeked) Then
-            m_Current = m_Peeked
+        If m_Peeked.HasValue Then
+            m_Current = m_Peeked.Value
+            m_CurrentData = m_Current.m_TokenType
             m_Peeked = Nothing
             Return
         End If
@@ -1598,22 +1616,29 @@ Public Class Scanner
             Return
         End If
 
+        lastTokenType = m_Current.m_TokenType
+        If lastTokenType = TokenType.Symbol Then
+            lastKS = DirectCast(m_CurrentData, KS)
+        End If
+
         m_CurrentTypeCharacter = TypeCharacters.Characters.None
         m_Current = GetNextToken()
 
-        'Console.WriteLine("Scanned token: " & result.FriendlyString())
-
-        'If m_Current.IsEndOfFile() Then
-        '    If Token.IsSomething(m_Current) AndAlso Not m_Current.IsEndOfLineOnly Then
-        '        m_Peeked = m_Current
-        '        m_Current = Token.CreateEndOfLineToken(Me.GetCurrentLocation)
-        '    End If
-        '    'NextFile()
-        'End If
-
-        m_CurrentTokenType = m_Current.m_TokenType
         m_CurrentData = m_Current.m_TokenObject
 
+        If m_Current.m_TokenType = TokenType.EndOfLine Then
+            If lastTokenType = TokenType.Symbol AndAlso (lastKS = KS.Comma OrElse lastKS = KS.LParenthesis OrElse lastKS = KS.LBrace) Then
+                m_CurrentTypeCharacter = TypeCharacters.Characters.None
+                m_Current = GetNextToken()
+                m_CurrentData = m_Current.m_TokenObject
+            Else
+                m_Peeked = GetNextToken()
+
+                If m_Peeked.Value.IsSymbol AndAlso (m_Peeked.Value.Symbol = KS.RParenthesis OrElse m_Peeked.Value.Symbol = KS.RBrace) Then
+                    NextUnconditionally()
+                End If
+            End If
+        End If
     End Sub
 
     Public ReadOnly Property Current() As Token
@@ -1637,12 +1662,6 @@ Public Class Scanner
     Public ReadOnly Property TokenData() As Object
         Get
             Return m_CurrentData
-        End Get
-    End Property
-
-    Public ReadOnly Property TokenType() As TokenType
-        Get
-            Return m_CurrentTokenType
         End Get
     End Property
 End Class

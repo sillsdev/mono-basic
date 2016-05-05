@@ -60,12 +60,6 @@ Public MustInherit Class UnaryExpression
         Return tm.CurrentToken.Equals(Enums.UnaryOperators)
     End Function
 
-    Public Overrides ReadOnly Property IsConstant() As Boolean
-        Get
-            Return m_Expression.IsConstant
-        End Get
-    End Property
-
     Protected Overrides Function ResolveExpressionInternal(ByVal Info As ResolveInfo) As Boolean
         Dim result As Boolean = True
         Dim operandType As TypeCode
@@ -116,6 +110,10 @@ Public MustInherit Class UnaryExpression
                 m_ExpressionType = methodClassification.ResolvedMethodInfo.ReturnType
                 Classification = methodClassification
             End If
+
+            If Location.File(Compiler).IsOptionStrictOn AndAlso Helper.CompareType(m_Expression.ExpressionType, Compiler.TypeCache.System_Object) Then
+                result = Compiler.Report.ShowMessage(Messages.VBNC30038, Me.Location, Enums.strSpecial(Keyword))
+            End If
         End If
 
         Return result
@@ -145,3 +143,4 @@ Public MustInherit Class UnaryExpression
         End Get
     End Property
 End Class
+

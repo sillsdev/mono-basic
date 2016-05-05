@@ -33,15 +33,6 @@ Public Class StructureDeclaration
         MyBase.New(Parent, [Namespace], Name, TypeParameters)
     End Sub
 
-    Public Overrides Function ResolveTypeReferences() As Boolean
-        Dim result As Boolean = True
-
-        MyBase.BaseType = Compiler.TypeCache.System_ValueType
-        result = MyBase.ResolveTypeReferences AndAlso result
-
-        Return result
-    End Function
-
     Shared Function IsMe(ByVal tm As tm) As Boolean
         Dim i As Integer
         While tm.PeekToken(i).Equals(ModifierMasks.StructureModifiers)
@@ -50,9 +41,13 @@ Public Class StructureDeclaration
         Return tm.PeekToken(i).Equals(KS.Structure)
     End Function
 
-    Public Overrides Sub UpdateDefinition()
-        MyBase.UpdateDefinition()
+    Public Overrides Function CreateDefinition() As Boolean
+        Dim result As Boolean = True
 
-        TypeAttributes = MyBase.TypeAttributes Or Mono.Cecil.TypeAttributes.SequentialLayout Or Mono.Cecil.TypeAttributes.Sealed
-    End Sub
+        result = MyBase.CreateDefinition AndAlso result
+        TypeAttributes = Helper.getTypeAttributeScopeFromScope(Me.Modifiers, Me.IsNestedType) Or Mono.Cecil.TypeAttributes.SequentialLayout Or Mono.Cecil.TypeAttributes.Sealed
+        MyBase.BaseType = Compiler.TypeCache.System_ValueType
+
+        Return result
+    End Function
 End Class

@@ -31,15 +31,16 @@ Imports System.Reflection.Emit
 Public Class EnumDeclaration
     Inherits TypeDeclaration
 
-    Private m_QualifiedName As KS = KS.Integer
     Private m_Constants As Generic.List(Of EnumMemberDeclaration)
     Private m_ValueField As Mono.Cecil.FieldDefinition
+    Public EnumConstantType As TypeReference
+    Public EnumType As NonArrayTypeName
+    Public EnumConstantTypeKeyword As KS
 
     Public Const EnumTypeMemberName As String = "value__"
 
-    Sub New(ByVal Parent As ParsedObject, ByVal [Namespace] As String, ByVal Name As Identifier, ByVal EnumType As KS)
+    Sub New(ByVal Parent As ParsedObject, ByVal [Namespace] As String, ByVal Name As Identifier)
         MyBase.New(Parent, [Namespace], Name)
-        m_QualifiedName = EnumType
     End Sub
 
     ReadOnly Property Constants() As Generic.List(Of EnumMemberDeclaration)
@@ -52,45 +53,6 @@ Public Class EnumDeclaration
         End Get
     End Property
 
-    Public Overrides Function ResolveTypeReferences() As Boolean
-        Dim result As Boolean = True
-
-        result = MyBase.ResolveTypeReferences() AndAlso result
-        UpdateDefinition()
-
-        Return result
-    End Function
-
-    ReadOnly Property EnumConstantTypeKeyword() As KS
-        Get
-            Return m_QualifiedName
-        End Get
-    End Property
-
-    ReadOnly Property EnumConstantType() As Mono.Cecil.TypeReference
-        Get
-            Return Compiler.TypeResolution.TypeCodeToType(TypeResolution.KeywordToTypeCode(m_QualifiedName))
-        End Get
-    End Property
-
-    Overrides Function DefineType() As Boolean
-        Dim result As Boolean = True
-
-        UpdateDefinition()
-
-        Return result
-    End Function
-
-    Public Overrides Function DefineTypeHierarchy() As Boolean
-        Dim result As Boolean = True
-
-        result = MyBase.DefineTypeHierarchy AndAlso result
-
-        UpdateDefinition()
-
-        Return result
-    End Function
-
     Shared Function IsMe(ByVal tm As tm) As Boolean
         Dim i As Integer
         While tm.PeekToken(i).Equals(ModifierMasks.TypeModifiers)
@@ -99,27 +61,58 @@ Public Class EnumDeclaration
         Return tm.PeekToken(i).Equals(KS.Enum)
     End Function
 
-    ReadOnly Property QualifiedName() As KS
-        Get
-            Return m_QualifiedName
-        End Get
-    End Property
+    Public Overrides Function CreateDefinition() As Boolean
+        Dim result As Boolean = True
 
-    Public Overrides Sub UpdateDefinition()
-        MyBase.UpdateDefinition()
+        Helper.Assert(m_ValueField Is Nothing)
 
-        TypeAttributes = Helper.getTypeAttributeScopeFromScope(Modifiers, IsNestedType) Or Mono.Cecil.TypeAttributes.Sealed
+        result = MyBase.CreateDefinition() AndAlso result
+
+        TypeAttributes = TypeAttributes Or Mono.Cecil.TypeAttributes.Sealed
         BaseType = Compiler.TypeCache.System_Enum
 
-        If m_ValueField Is Nothing AndAlso m_QualifiedName <> KS.None Then
-            m_ValueField = New Mono.Cecil.FieldDefinition(EnumTypeMemberName, Mono.Cecil.FieldAttributes.Public Or Mono.Cecil.FieldAttributes.SpecialName Or Mono.Cecil.FieldAttributes.RTSpecialName, Helper.GetTypeOrTypeReference(Compiler, EnumConstantType))
-            CecilType.Fields.Add(m_ValueField)
-        End If
+        m_ValueField = New Mono.Cecil.FieldDefinition(EnumTypeMemberName, Mono.Cecil.FieldAttributes.Public Or Mono.Cecil.FieldAttributes.SpecialName Or Mono.Cecil.FieldAttributes.RTSpecialName, Nothing)
+        CecilType.Fields.Add(m_ValueField)
 
-        If m_ValueField IsNot Nothing Then
-            m_ValueField.FieldType = Helper.GetTypeOrTypeReference(Compiler, EnumConstantType)
+        Return result
+    End Function
+
+    Public Overrides Function ResolveTypeReferences() As Boolean
+        Dim result As Boolean = True
+
+        result = MyBase.ResolveTypeReferences AndAlso result
+        If EnumConstantType Is Nothing Then
+            If EnumType IsNot Nothing Then
+                result = EnumType.ResolveTypeReferences AndAlso result
+                If result = False Then Return False
+                EnumConstantType = EnumType.ResolvedType
+            Else
+                EnumConstantType = Compiler.TypeCache.System_Int32
+            End If
         End If
-    End Sub
+        If Helper.CompareType(Compiler.TypeCache.System_Byte, EnumConstantType) Then
+            EnumConstantTypeKeyword = KS.Byte
+        ElseIf Helper.CompareType(EnumConstantType, Compiler.TypeCache.System_SByte) Then
+            EnumConstantTypeKeyword = KS.SByte
+        ElseIf Helper.CompareType(EnumConstantType, Compiler.TypeCache.System_UInt16) Then
+            EnumConstantTypeKeyword = KS.UShort
+        ElseIf Helper.CompareType(EnumConstantType, Compiler.TypeCache.System_Int16) Then
+            EnumConstantTypeKeyword = KS.Short
+        ElseIf Helper.CompareType(EnumConstantType, Compiler.TypeCache.System_UInt32) Then
+            EnumConstantTypeKeyword = KS.UInteger
+        ElseIf Helper.CompareType(EnumConstantType, Compiler.TypeCache.System_Int32) Then
+            EnumConstantTypeKeyword = KS.Integer
+        ElseIf Helper.CompareType(EnumConstantType, Compiler.TypeCache.System_UInt64) Then
+            EnumConstantTypeKeyword = KS.ULong
+        ElseIf Helper.CompareType(EnumConstantType, Compiler.TypeCache.System_Int64) Then
+            EnumConstantTypeKeyword = KS.Long
+        Else
+            result = Compiler.Report.ShowMessage(Messages.VBNC30650, Me.Location)
+        End If
+        m_ValueField.FieldType = Helper.GetTypeOrTypeReference(Compiler, EnumConstantType)
+
+        Return result
+    End Function
 
     Public Overrides ReadOnly Property IsShared() As Boolean
         Get
@@ -127,3 +120,4 @@ Public Class EnumDeclaration
         End Get
     End Property
 End Class
+

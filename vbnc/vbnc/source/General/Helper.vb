@@ -131,14 +131,11 @@ Public Class Helper
 
         'LAMESPEC: shared constructors have implicit public access.
         'VBC: shared constructors defaults to private.
-        If m_Declaration.Modifiers.IsAny(ModifierMasks.AccessModifiers) = False AndAlso m_Declaration.IsShared Then
-            flags = flags Or Mono.Cecil.MethodAttributes.Private
+        'VBC: errors if shared constructors aren't private
+        If m_Declaration.IsShared Then
+            flags = flags Or Mono.Cecil.MethodAttributes.Private Or Mono.Cecil.MethodAttributes.Static
         Else
             flags = flags Or m_Declaration.Modifiers.GetMethodAttributeScope
-        End If
-
-        If m_Declaration.IsShared Then
-            flags = flags Or Mono.Cecil.MethodAttributes.Static
         End If
 
         Return flags
@@ -146,6 +143,9 @@ Public Class Helper
 
     Public Shared Function GetAttributes(ByVal m_Declaration As MethodBaseDeclaration) As Mono.Cecil.MethodAttributes
         Dim result As Mono.Cecil.MethodAttributes
+        Dim cd As ConstructorDeclaration = TryCast(m_Declaration, ConstructorDeclaration)
+
+        If cd IsNot Nothing Then Return GetAttributes(cd)
 
         result = m_Declaration.Modifiers.GetMethodAttributeScope
 
@@ -498,6 +498,7 @@ Public Class Helper
     Shared Function IsEnum(ByVal Compiler As Compiler, ByVal Type As Mono.Cecil.TypeReference) As Boolean
         If TypeOf Type Is Mono.Cecil.GenericParameter Then Return False
         If TypeOf Type Is Mono.Cecil.ArrayType Then Return False
+        If TypeOf Type Is ByReferenceType Then Return False
         Return CecilHelper.FindDefinition(Type).IsEnum
     End Function
 
@@ -1352,6 +1353,13 @@ Public Class Helper
         Return attrib
     End Function
 
+    Shared Function IsDefaultProperty(ByVal Compiler As Compiler, ByVal P As PropertyDefinition) As Boolean
+        Dim ca As CustomAttribute = GetDefaultMemberAttribute(Compiler, P.DeclaringType)
+        If ca Is Nothing Then Return False
+        Return Helper.CompareName(DirectCast(ca.ConstructorArguments(0).Value, String), P.Name)
+    End Function
+
+
     Shared Function IsShadows(ByVal Context As BaseObject, ByVal Member As Mono.Cecil.MemberReference) As Boolean
         Dim result As Boolean = True
         Select Case CecilHelper.GetMemberType(Member)
@@ -1380,7 +1388,7 @@ Public Class Helper
                 Return CecilHelper.FindDefinition(DirectCast(Member, Mono.Cecil.MethodReference)).IsStatic
             Case MemberTypes.Property
                 Dim pInfo As Mono.Cecil.PropertyDefinition = CecilHelper.FindDefinition(DirectCast(Member, Mono.Cecil.PropertyReference))
-                Return CBool(Helper.GetPropertyAttributes(pInfo) And Mono.Cecil.MethodAttributes.Static)
+                Return CecilHelper.IsStatic(pInfo)
             Case MemberTypes.Field
                 Dim fInfo As Mono.Cecil.FieldDefinition = CecilHelper.FindDefinition(DirectCast(Member, Mono.Cecil.FieldReference))
                 Return fInfo.IsStatic
@@ -1520,7 +1528,7 @@ Public Class Helper
             Helper.Assert(result IsNot Nothing)
         ElseIf CecilHelper.IsGenericType(OpenType) Then
             Dim typeParams As Mono.Collections.Generic.Collection(Of TypeReference)
-            Dim typeArgs As New Mono.Collections.Generic.Collection(Of TypeReference)(Nothing)
+            Dim typeArgs As New Mono.Collections.Generic.Collection(Of TypeReference)
 
             typeParams = CecilHelper.GetGenericArguments(OpenType)
 
@@ -2043,7 +2051,6 @@ Public Class Helper
         Return False
     End Function
 
-
     Shared Function IsNothing(Of T)(ByVal Value As T) As Boolean
         Return Value Is Nothing
     End Function
@@ -2061,20 +2068,6 @@ Public Class Helper
         Next
         Return result
     End Function
-
-    Shared Function DefineMembersCollection(ByVal Collection As Generic.IEnumerable(Of IDefinableMember)) As Boolean
-        Dim result As Boolean = True
-        For Each obj As IDefinableMember In Collection
-            result = obj.DefineMember AndAlso result
-        Next
-        Return result
-    End Function
-
-    Shared Sub InitializeCollection(ByVal Collection As IEnumerable, ByVal Parent As BaseObject)
-        For Each obj As BaseObject In Collection
-            obj.Initialize(Parent)
-        Next
-    End Sub
 
     Shared Function ResolveTypeReferencesCollection(ByVal Collection As IEnumerable) As Boolean
         Dim result As Boolean = True
@@ -2114,16 +2107,6 @@ Public Class Helper
         Helper.Assert(Collection.Count = Types.Length)
         For i As Integer = 0 To Collection.Count - 1
             result = DirectCast(Collection(i), IBaseObject).GenerateCode(Info.Clone(Info.Context, Info.IsRHS, Info.IsExplicitConversion, Types(i))) AndAlso result
-        Next
-        Return result
-    End Function
-
-    Shared Function CloneExpressionArray(ByVal Expressions() As Expression, ByVal NewParent As ParsedObject) As Expression()
-        Dim result(Expressions.GetUpperBound(0)) As Expression
-        For i As Integer = 0 To result.GetUpperBound(0)
-            If Expressions(i) IsNot Nothing Then
-                result(i) = Expressions(i).Clone(NewParent)
-            End If
         Next
         Return result
     End Function
@@ -2240,6 +2223,7 @@ Public Class Helper
     Shared Sub ErrorRecoveryNotImplemented(ByVal Location As Span)
         Console.WriteLine("{0}: Compiler error around this location, the compiler hasn't implemented the error message, nor error recovery, so the compiler will probably crash soon.", Location.AsString(BaseObject.m_Compiler))
         Console.WriteLine(New System.Diagnostics.StackTrace().ToString())
+        Helper.StopIfDebugging()
     End Sub
 
     <Diagnostics.DebuggerHidden()> Private Shared Sub IndirectedStop()
@@ -2778,6 +2762,10 @@ Public Class Helper
 
     Shared Function IsSubclassOf(ByVal BaseClass As Mono.Cecil.TypeReference, ByVal DerivedClass As Mono.Cecil.TypeReference) As Boolean
         If TypeOf BaseClass Is Mono.Cecil.GenericParameter Xor TypeOf DerivedClass Is Mono.Cecil.GenericParameter Then Return False
+        If TypeOf DerivedClass Is ArrayType Then
+            If Helper.CompareType(BaseClass, Compiler.CurrentCompiler.TypeCache.System_Array) Then Return True
+            Return False
+        End If
         If TypeOf BaseClass Is Mono.Cecil.ArrayType Or TypeOf DerivedClass Is Mono.Cecil.ArrayType Then Return False
         Dim base As Mono.Cecil.TypeDefinition = CecilHelper.FindDefinition(BaseClass)
         Dim derived As Mono.Cecil.TypeDefinition = CecilHelper.FindDefinition(DerivedClass)
@@ -2794,10 +2782,11 @@ Public Class Helper
         Dim ifaces As Mono.Collections.Generic.Collection(Of TypeReference)
         ifaces = CecilHelper.GetInterfaces(Type, True)
         For Each iface As Mono.Cecil.TypeReference In ifaces
-            If Helper.IsAssignable(Context, iface, [Interface]) Then Return True
+            'If Helper.IsAssignable(Context, iface, [Interface]) Then Return True
+            If Helper.CompareType(iface, [Interface]) Then Return True
+            If DoesTypeImplementInterface(Context, iface, [Interface]) Then Return True
         Next
         Return False
-        '        Return Array.IndexOf(CecilHelper.GetInterfaces(Type), [Interface]) >= 0
     End Function
 
     Shared Function GetEnumType(ByVal Compiler As Compiler, ByVal EnumType As Mono.Cecil.TypeReference) As Mono.Cecil.TypeReference
@@ -2814,6 +2803,7 @@ Public Class Helper
         Return fInfo.FieldType
     End Function
 
+
     ''' <summary>
     ''' Creates a CType expression containing the specified FromExpression if necessary.
     ''' </summary>
@@ -2824,88 +2814,916 @@ Public Class Helper
     ''' <returns></returns>
     ''' <remarks></remarks>
     Shared Function CreateTypeConversion(ByVal Parent As ParsedObject, ByVal FromExpression As Expression, ByVal DestinationType As Mono.Cecil.TypeReference, ByRef result As Boolean) As Expression
-        Dim fromExpr As Expression
+        Dim res As Expression = Nothing
+        result = IsConvertible(Parent, FromExpression, FromExpression.ExpressionType, DestinationType, True, res, True, Nothing)
+        Return res
+    End Function
 
-        Helper.Assert(FromExpression IsNot Nothing)
+    Shared Function IsConvertible(ByVal Parent As ParsedObject, ByVal FromExpression As Expression, ByVal FromType As TypeReference, ByVal DestinationType As TypeReference, ByVal CreateConversionExpression As Boolean, ByRef convExpr As Expression, ByVal ShowError As Boolean, ByVal isStrict As Boolean?, Optional ByVal considerConstantExpressions As Boolean = True) As Boolean
+        Dim Compiler As Compiler = Parent.Compiler
+        Dim TypeCache As CecilTypeCache = Compiler.TypeCache
+        Dim toArray As ArrayType
+        Dim fromArray As ArrayType
+        Dim fromTD As TypeDefinition
+        Dim toTD As TypeDefinition
+        Dim fromElement As TypeReference
+        Dim toElement As TypeReference
+        Dim isFromReference As Boolean
+        Dim fromTG As GenericParameter
+        Dim toTG As GenericParameter
+        Dim fromTC As TypeCode
+        Dim toTC As TypeCode
+        Dim isFromNullable As Boolean
+        Dim isToNullable As Boolean
+        Dim isFromEnum As Boolean
+        Dim isToEnum As Boolean
+        Dim byrefTo As ByReferenceType = TryCast(DestinationType, ByReferenceType)
+        Dim byrefFrom As ByReferenceType = TryCast(FromType, ByReferenceType)
 
-        fromExpr = FromExpression
+        Dim constant As Object = Nothing
 
-        Dim fromType As Mono.Cecil.TypeReference
-        fromType = FromExpression.ExpressionType
-
-#If EXTENDEDDEBUG Then
-        Parent.Compiler.Report.WriteLine("Creating type conversion, from " & fromType.FullName & " to " & DestinationType.FullName)
-        If DestinationType.IsByRef Then
-            Parent.Compiler.Report.WriteLine(">DestinationType.ElementType = " & DestinationType.GetElementType.FullName)
-            Parent.Compiler.Report.WriteLine(">IsAssignable to DestinationType.ElementType = " & IsAssignable(Parent.Compiler, fromType, DestinationType.GetElementType))
-        End If
-#End If
-
-        Helper.Assert(fromType IsNot Nothing)
-
-        If Helper.CompareType(fromType, DestinationType) Then
-            'do nothing
-        ElseIf CecilHelper.IsByRef(fromExpr.ExpressionType) AndAlso IsAssignable(Parent, CecilHelper.GetElementType(fromType), DestinationType) Then
-            'do nothing
-            If CecilHelper.IsValueType(CecilHelper.GetElementType(fromType)) AndAlso CecilHelper.IsValueType(DestinationType) = False Then
-                fromExpr = New BoxExpression(Parent, fromExpr, DestinationType)
-            End If
-        ElseIf CecilHelper.IsByRef(DestinationType) AndAlso IsAssignable(Parent, fromExpr.ExpressionType, CecilHelper.GetElementType(DestinationType)) Then
-#If EXTENDEDDEBUG Then
-            Parent.Compiler.Report.WriteLine(">3")
-#End If
-            If CecilHelper.IsByRef(fromExpr.ExpressionType) = False AndAlso Helper.CompareType(fromExpr.ExpressionType, CecilHelper.GetElementType(DestinationType)) = False Then
-                fromExpr = New CTypeExpression(Parent, fromExpr, CecilHelper.GetElementType(DestinationType))
-                result = fromExpr.ResolveExpression(ResolveInfo.Default(Parent.Compiler)) AndAlso result
-            End If
-            'do nothing
-        ElseIf CecilHelper.IsByRef(DestinationType) AndAlso Parent.Compiler.TypeResolution.IsImplicitlyConvertible(Parent, fromExpr.ExpressionType, CecilHelper.GetElementType(DestinationType)) Then
-            Dim tmpExp As Expression
-            tmpExp = CreateTypeConversion(Parent, fromExpr, CecilHelper.GetElementType(DestinationType), result)
-            If result = False Then Return fromExpr
-
-            fromExpr = tmpExp
-        ElseIf CompareType(fromExpr.ExpressionType, Parent.Compiler.TypeCache.Nothing) Then
-            'do nothing
-        ElseIf CompareType(DestinationType, Parent.Compiler.TypeCache.System_Enum) AndAlso Helper.IsEnum(Parent.Compiler, fromExpr.ExpressionType) Then
-            fromExpr = New BoxExpression(Parent, fromExpr, DestinationType)
-        ElseIf CompareType(fromExpr.ExpressionType, DestinationType) = False AndAlso IsAssignable(Parent, fromExpr.ExpressionType, DestinationType) = False Then
-            Dim CTypeExp As Expression
-
-            If CecilHelper.IsByRef(fromExpr.ExpressionType) Then
-                fromExpr = New DeRefExpression(fromExpr, fromExpr)
-            End If
-
-            CTypeExp = ConversionExpression.GetTypeConversion(Parent, fromExpr, DestinationType)
-            result = CTypeExp.ResolveExpression(ResolveInfo.Default(Parent.Compiler)) AndAlso result
-            fromExpr = CTypeExp
-        ElseIf CompareType(DestinationType, Parent.Compiler.TypeCache.System_Object) AndAlso CecilHelper.IsValueType(fromExpr.ExpressionType) Then
-            fromExpr = New BoxExpression(Parent, fromExpr, DestinationType)
-        ElseIf CompareType(DestinationType, Parent.Compiler.TypeCache.System_Object) AndAlso CecilHelper.IsGenericParameter(fromExpr.ExpressionType) Then
-            fromExpr = New BoxExpression(Parent, fromExpr, DestinationType)
-        ElseIf CecilHelper.IsGenericType(fromExpr.ExpressionType) Then
-            'fromExpr = New BoxExpression(Parent, fromExpr, fromExpr.ExpressionType)
-            fromExpr = New CTypeExpression(Parent, fromExpr, DestinationType)
-            result = fromExpr.ResolveExpression(ResolveInfo.Default(Parent.Compiler)) AndAlso result
-        ElseIf fromExpr.Compiler.TypeResolution.IsImplicitlyConvertible(fromExpr, fromExpr.ExpressionType, DestinationType) AndAlso DestinationType.IsValueType AndAlso fromExpr.ExpressionType.IsValueType Then
-            Dim CTypeExp As Expression
-
-            CTypeExp = ConversionExpression.GetTypeConversion(Parent, fromExpr, DestinationType)
-            result = CTypeExp.ResolveExpression(ResolveInfo.Default(Parent.Compiler)) AndAlso result
-            fromExpr = CTypeExp
-        ElseIf CompareType(DestinationType, Parent.Compiler.TypeCache.System_ValueType) AndAlso fromExpr.ExpressionType.IsValueType Then
-            fromExpr = New BoxExpression(Parent, fromExpr, fromExpr.ExpressionType)
-        ElseIf TypeOf fromExpr.ExpressionType Is GenericParameter Then
-            fromExpr = New CTypeExpression(Parent, fromExpr, DestinationType)
+        If Not isStrict.HasValue Then
+            isStrict = Parent.Location.File(Compiler).IsOptionStrictOn
         End If
 
-#If EXTENDEDDEBUG Then
-        If fromType IsNot FromExpression Then
-            Parent.Compiler.Report.WriteLine(Report.ReportLevels.Debug, "Created type conversion from '" & FromExpression.ExpressionType.Name & "' to '" & DestinationType.Name & "'")
-        End If
-#End If
+        convExpr = FromExpression
 
-        Return fromExpr
+        If byrefTo IsNot Nothing AndAlso byrefFrom Is Nothing Then
+            If IsConvertible(Parent, FromExpression, FromType, byrefTo.ElementType, CreateConversionExpression, convExpr, ShowError, isStrict) Then
+                'If CreateConversionExpression Then
+                '    convExpr = New GetRefExpression(Parent, convExpr)
+                '    If convExpr.ResolveExpression(ResolveInfo.Default(Parent.Compiler)) = False Then Return False
+                'End If
+                Return True
+            End If
+            Return False
+        ElseIf byrefFrom IsNot Nothing AndAlso byrefTo Is Nothing Then
+            If IsConvertible(Parent, FromExpression, byrefFrom.ElementType, DestinationType, False, convExpr, ShowError, isStrict) Then
+                If CreateConversionExpression Then
+                    convExpr = New DeRefExpression(Parent, convExpr)
+                    If convExpr.ResolveExpression(ResolveInfo.Default(Parent.Compiler)) = False Then Return False
+                    If Not IsConvertible(Parent, convExpr, byrefFrom.ElementType, DestinationType, True, convExpr, ShowError, isStrict) Then Return False
+                End If
+                Return True
+            End If
+            Return False
+        End If
+
+        'Identity/Default conversions
+        '•	From a type to itself.
+        If Helper.CompareType(FromType, DestinationType) Then
+            'no conversion required
+            Return True
+        End If
+        '•	From an anonymous delegate type generated for a lambda method reclassification to any delegate type with an identical signature.
+        'TODO
+        '•	From the literal Nothing to a type.
+        If Helper.CompareType(FromType, Compiler.TypeCache.Nothing) Then
+            'not sure if a conversion is required here
+            If CreateConversionExpression Then
+                convExpr = New CTypeExpression(Parent, convExpr, DestinationType)
+                If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+            End If
+            Return True
+        End If
+
+        toTD = CecilHelper.FindDefinition(DestinationType)
+        fromTD = CecilHelper.FindDefinition(FromType)
+        toArray = TryCast(DestinationType, ArrayType)
+        fromArray = TryCast(FromType, ArrayType)
+        isFromReference = fromTD IsNot Nothing AndAlso ((fromTD.IsInterface OrElse fromTD.IsClass) AndAlso (fromTD.IsValueType = False OrElse fromArray IsNot Nothing))
+        isFromNullable = Helper.IsNullableType(Compiler, FromType)
+        isToNullable = Helper.IsNullableType(Compiler, DestinationType)
+        isFromEnum = Helper.IsEnum(Compiler, FromType)
+        isToEnum = Helper.IsEnum(Compiler, DestinationType)
+        fromTC = Helper.GetTypeCode(Compiler, FromType)
+        toTC = Helper.GetTypeCode(Compiler, DestinationType)
+
+        'Numeric conversions
+        'Widening conversions:
+        '•	From Byte to UShort, Short, UInteger, Integer, ULong, Long, Decimal, Single, or Double.
+        '•	From SByte to Short, Integer, Long, Decimal, Single, or Double.
+        '•	From UShort to UInteger, Integer, ULong, Long, Decimal, Single, or Double.
+        '•	From Short to Integer, Long, Decimal, Single or Double.
+        '•	From UInteger to ULong, Long, Decimal, Single, or Double.
+        '•	From Integer to Long, Decimal, Single or Double.
+        '•	From ULong to Decimal, Single, or Double.
+        '•	From Long to Decimal, Single or Double.
+        '•	From Decimal to Single or Double.
+        '•	From Single to Double.
+        If isFromNullable = False AndAlso isToNullable = False AndAlso isFromEnum = False AndAlso isToEnum = False Then
+            Select Case fromTC
+                Case TypeCode.Byte, TypeCode.SByte, TypeCode.UInt16, TypeCode.Int16, TypeCode.UInt32, TypeCode.Int32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Decimal, TypeCode.Single
+                    If (toTC <> TypeCode.Object OrElse Helper.CompareType(DestinationType, TypeCache.System_Object)) AndAlso Compiler.TypeResolution.IsImplicitlyConvertible(Compiler, fromTC, toTC) Then
+                        If CreateConversionExpression Then
+                            convExpr = New CTypeExpression(Parent, FromExpression, DestinationType)
+                            If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                        End If
+                        Return True
+                    End If
+            End Select
+        End If
+        '•	From the literal 0 to an enumerated type. (widening)
+        If considerConstantExpressions AndAlso Helper.IsEnum(Compiler, DestinationType) AndAlso Helper.IsLiteral0Expression(Compiler, FromExpression) Then
+            If CreateConversionExpression Then
+                convExpr = New CTypeExpression(Parent, FromExpression, DestinationType)
+                If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+            End If
+            Return True
+        End If
+        '•	From an enumerated type to its underlying numeric type, or to a numeric type that its underlying numeric type has a widening conversion to.
+        If Helper.IsEnum(Compiler, FromType) AndAlso toTC <> TypeCode.Object AndAlso Helper.IsEnum(Compiler, DestinationType) = False Then
+            Dim enumType As TypeReference = Helper.GetEnumType(Compiler, FromType)
+            If Compiler.TypeResolution.IsImplicitlyConvertible(Compiler, Helper.GetTypeCode(Compiler, enumType), toTC) Then
+                convExpr = New CTypeExpression(Parent, FromExpression, DestinationType, CTypeConversionType.Intrinsic)
+                If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                Return True
+            End If
+        End If
+        '•	From a constant expression of type ULong, Long, UInteger, Integer, UShort, Short, Byte, or SByte to a narrower type, provided the value of the constant expression is within the range of the destination type.
+        'SPECBUG: this doesn't include the other numeric types, Single, Double and Decimal
+        If considerConstantExpressions AndAlso (fromTC = TypeCode.UInt64 OrElse fromTC = TypeCode.Int64 OrElse fromTC = TypeCode.UInt32 OrElse fromTC = TypeCode.Int32 OrElse fromTC = TypeCode.UInt16 OrElse fromTC = TypeCode.Int16 OrElse fromTC = TypeCode.Byte OrElse fromTC = TypeCode.SByte OrElse fromTC = TypeCode.Single OrElse fromTC = TypeCode.Double OrElse fromTC = TypeCode.Decimal) Then
+            If FromExpression.GetConstant(constant, False) Then
+                If Helper.CompareType(DestinationType, TypeCache.System_DBNull) = False AndAlso Compiler.TypeResolution.CheckNumericRange(constant, constant, DestinationType) Then
+                    'No conversion should be required here
+                    convExpr = New CTypeExpression(Parent, FromExpression, DestinationType)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                    Return True
+                End If
+            End If
+        End If
+
+        '•	From a numeric type to an enumerated type.
+        If Helper.IsEnum(Compiler, DestinationType) AndAlso Compiler.TypeResolution.IsNumericType(FromType) Then
+            If isStrict Then
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                Return False
+            End If
+            If CreateConversionExpression Then
+                convExpr = New CTypeExpression(Parent, FromExpression, DestinationType)
+                If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+            End If
+            Return True
+        End If
+        '•	From an enumerated type to a numeric type its underlying numeric type has a narrowing conversion to.
+        If Helper.IsEnum(Compiler, FromType) AndAlso Compiler.TypeResolution.IsNumericType(DestinationType) Then
+            'if DestinationType is a numeric type the enum's type has a widening conversion to, we'll hit a widening conversion case above
+            If isStrict Then
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                Return False
+            End If
+            If CreateConversionExpression Then
+                convExpr = New CTypeExpression(Parent, FromExpression, DestinationType)
+                If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+            End If
+            Return True
+        End If
+        '•	From an enumerated type to another enumerated type. 
+        If Helper.IsEnum(Compiler, DestinationType) Then
+            If Helper.IsEnum(Compiler, FromType) Then
+                If isStrict Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                    Return False
+                End If
+                If CreateConversionExpression Then
+                    convExpr = New CTypeExpression(Parent, FromExpression, Helper.GetEnumType(Compiler, DestinationType), CTypeConversionType.Intrinsic)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            ElseIf Helper.CompareType(FromType, TypeCache.System_Enum) Then
+                If isStrict Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                    Return False
+                End If
+                If CreateConversionExpression Then
+                    convExpr = New CTypeExpression(Parent, FromExpression, DestinationType, CTypeConversionType.Unbox_Ldobj)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+        End If
+
+        'Reference conversions
+        '•	From a reference type to a base type.
+        If isFromReference AndAlso Helper.IsSubclassOf(DestinationType, FromType) Then
+            'no conversion required
+            Return True
+        End If
+
+        If isFromReference AndAlso Helper.CompareType(DestinationType, TypeCache.System_Object) Then
+            'no conversion required.
+            'this case is required for at least arrays (since arrays don't explicitly inherit from object)
+            Return True
+        End If
+
+        '•	From a reference type to an interface type, provided that the type implements the interface or a variant compatible interface.
+        If isFromReference AndAlso toTD IsNot Nothing AndAlso toTD.IsInterface Then
+            If Helper.DoesTypeImplementInterface(Parent, FromType, DestinationType) Then
+                'no conversion required
+                Return True
+            End If
+        End If
+        If CecilHelper.IsArray(FromType) AndAlso toTD IsNot Nothing AndAlso toTD.IsInterface Then
+            If Helper.DoesTypeImplementInterface(Parent, FromType, DestinationType) Then
+                'no conversion required
+                Return True
+            End If
+        End If
+
+        '•	From an interface type to Object.
+        If isFromReference AndAlso toTD IsNot Nothing AndAlso fromTD.IsInterface AndAlso Helper.Compare(Parent.Compiler.TypeCache.System_Object, DestinationType) Then
+            'No conversion required
+            Return True
+        End If
+        '•	From an interface type to a variant compatible interface type.
+        '•	From a delegate type to a variant compatible delegate type.
+
+        'https://connect.microsoft.com/VisualStudio/feedback/details/649909/vb-10-specification-does-not-cover-conversion-from-array-type-derived-to-ilist-of-base
+        'This is from C#'s ECMA-334:
+        '•	From a one-dimensional array-type S[] to System.Collections.Generic.IList<T> and base interfaces of this interface, provided there is an implicit reference conversion from S to T.
+        If fromArray IsNot Nothing AndAlso fromArray.Rank = 1 AndAlso toTD IsNot Nothing AndAlso toTD.IsInterface AndAlso toTD.GenericParameters.Count = 1 Then
+            Dim isIList As Boolean = Helper.CompareType(toTD, TypeCache.System_Collections_Generic_IList1)
+            isIList = isIList OrElse Helper.CompareType(toTD, TypeCache.System_Collections_Generic_IEnumerable1)
+            isIList = isIList OrElse Helper.CompareType(toTD, TypeCache.System_Collections_Generic_ICollection1)
+            If isIList Then
+                Dim git As GenericInstanceType = TryCast(DestinationType, GenericInstanceType)
+                If git IsNot Nothing AndAlso git.GenericArguments.Count = 1 AndAlso IsConvertible(Parent, FromExpression, fromArray.GetElementType(), git.GenericArguments(0), False, Nothing, False, True) Then
+                    'No conversion expression is required I think
+                    Return True
+                End If
+            End If
+        End If
+
+        'Narrowing conversions for reference conversions are done at the end of the widening conversions
+
+        'Anonymous Delegate conversions
+        '•	From an anonymous delegate type generated for a lambda method reclassification to any wider delegate type. (widening)
+        '•	From an anonymous delegate type generated for a lambda method reclassification to any narrower delegate type. (narrowing)
+        'TODO
+
+        'Array conversions
+        If toArray IsNot Nothing AndAlso fromArray IsNot Nothing Then
+            toElement = toArray.ElementType
+            fromElement = fromArray.ElementType
+
+            '•	From an array type S with an element type SE to an array type T with an element type TE, provided all of the following are true:
+            '   •	S and T differ only in element type.
+            If toArray.Rank <> fromArray.Rank Then
+                If ShowError Then
+                    Compiler.Report.ShowMessage(Messages.VBNC30414, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                End If
+                Return False
+            End If
+            If toArray.Dimensions.Count <> fromArray.Dimensions.Count Then
+                If ShowError Then
+                    Compiler.Report.ShowMessage(Messages.VBNC30414, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                End If
+                Return False
+            End If
+            '   •	Both SE and TE are reference types or are type parameters known to be a reference type.
+            '   •	A widening reference, array, or type parameter conversion exists from SE to TE.
+            If CecilHelper.IsReferenceTypeOrGenericReferenceTypeParameter(toElement) AndAlso CecilHelper.IsReferenceTypeOrGenericReferenceTypeParameter(fromElement) Then
+                If IsConvertible(Parent, FromExpression, fromElement, toElement, False, Nothing, False, True) Then
+                    If CreateConversionExpression Then
+                        convExpr = New CTypeExpression(Parent, FromExpression, DestinationType, CTypeConversionType.Castclass)
+                        If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                    End If
+                    Return True
+                End If
+            End If
+
+            '•	From an array type S with an enumerated element type SE to an array type T with an element type TE, provided all of the following are true:
+            If Helper.IsEnum(Parent.Compiler, fromElement) Then
+                '   •	S and T differ only in element type.
+                'This has been checked above
+
+                '   •	TE is the underlying type of SE.
+                Dim enumT As TypeReference = Helper.GetEnumType(Parent.Compiler, fromElement)
+                If Helper.CompareType(enumT, toElement) Then
+                    'Not sure if a conversion is required here
+                    Return True
+                End If
+            End If
+
+            'Narrowing conversions:
+            '•	From an array type S with an element type SE, to an array type T with an element type TE, provided that all of the following are true:
+            '   •	S and T differ only in element type.
+            '   •	Both SE and TE are reference types or are type parameters not known to be value types.
+            '   •	A narrowing reference, array, or type parameter conversion exists from SE to TE.
+            If CecilHelper.IsValueType(toElement) = False AndAlso CecilHelper.IsValueType(fromElement) = False Then
+                If IsConvertible(Parent, FromExpression, fromElement, toElement, False, Nothing, False, False) Then
+                    If isStrict Then
+                        If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                        Return False
+                    End If
+                    If CreateConversionExpression Then
+                        convExpr = New CTypeExpression(Parent, FromExpression, DestinationType, CTypeConversionType.Castclass)
+                        If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                    End If
+                    Return True
+                End If
+            End If
+
+            '•	From an array type S with an element type SE to an array type T with an enumerated element type TE, provided all of the following are true:
+            If Helper.IsEnum(Parent.Compiler, toElement) Then
+                '   •	S and T differ only in element type.
+                'This has been checked above
+
+                '   •	SE is the underlying type of TE.
+                Dim enumT As TypeReference = Helper.GetEnumType(Parent.Compiler, toElement)
+                If Helper.CompareType(enumT, fromElement) Then
+                    If isStrict Then
+                        If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                        Return False
+                    End If
+                    If CreateConversionExpression Then
+                        'Not sure if this is the right conversion
+                        convExpr = New CTypeExpression(Parent, FromExpression, DestinationType, CTypeConversionType.Castclass)
+                        If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                    End If
+                    Return True
+                End If
+            End If
+
+            If ShowError Then
+                If Helper.IsEnum(Compiler, fromElement) = False AndAlso CecilHelper.IsValueType(fromElement) AndAlso CecilHelper.IsValueType(toElement) = False Then
+                    Compiler.Report.ShowMessage(Messages.VBNC30333, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType), Helper.ToString(Compiler, fromElement), Helper.ToString(Compiler, toElement))
+                Else
+                    Compiler.Report.ShowMessage(Messages.VBNC30332, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType), Helper.ToString(Compiler, fromElement), Helper.ToString(Compiler, toElement))
+                End If
+            End If
+            Return False
+        End If
+
+        'Value Type conversions
+        If fromTD IsNot Nothing AndAlso fromTD.IsValueType Then
+            '•	From a value type to a base type.
+            If Helper.CompareType(DestinationType, Parent.Compiler.TypeCache.System_Object) OrElse Helper.CompareType(DestinationType, Parent.Compiler.TypeCache.System_ValueType) Then
+                If CreateConversionExpression Then
+                    convExpr = New BoxExpression(Parent, convExpr, DestinationType)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+
+            If Helper.IsEnum(Compiler, FromType) AndAlso Helper.CompareType(DestinationType, TypeCache.System_Enum) Then
+                If CreateConversionExpression Then
+                    convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.Box)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+
+            '•	From a value type to an interface type that the type implements.
+            If fromTD.HasInterfaces Then
+                Dim interfaces As Mono.Collections.Generic.Collection(Of TypeReference)
+                interfaces = CecilHelper.GetInterfaces(FromType, True)
+                For i As Integer = 0 To interfaces.Count - 1
+                    If Helper.CompareType(DestinationType, interfaces(i)) Then
+                        If CreateConversionExpression Then
+                            convExpr = New BoxExpression(Parent, convExpr, DestinationType)
+                            If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                        End If
+                        Return True
+                    End If
+
+                    If Helper.DoesTypeImplementInterface(Parent, interfaces(i), DestinationType) Then
+                        If CreateConversionExpression Then
+                            convExpr = New BoxExpression(Parent, convExpr, DestinationType)
+                            If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                        End If
+                        Return True
+                    End If
+                Next
+            End If
+        End If
+
+        'Narrowing conversions:
+        '•	From Boolean to Byte, SByte, UShort, Short, UInteger, Integer, ULong, Long, Decimal, Single, or Double.
+        '•	From Byte, SByte, UShort, Short, UInteger, Integer, ULong, Long, Decimal, Single, or Double to Boolean.
+        '•	From Byte to SByte.
+        '•	From SByte to Byte, UShort, UInteger, or ULong.
+        '•	From UShort to Byte, SByte, or Short.
+        '•	From Short to Byte, SByte, UShort, UInteger, or ULong.
+        '•	From UInteger to Byte, SByte, UShort, Short, or Integer.
+        '•	From Integer to Byte, SByte, UShort, Short, UInteger, or ULong.
+        '•	From ULong to Byte, SByte, UShort, Short, UInteger, Integer, or Long.
+        '•	From Long to Byte, SByte, UShort, Short, UInteger, Integer, or ULong.
+        '•	From Decimal to Byte, SByte, UShort, Short, UInteger, Integer, ULong, or Long.
+        '•	From Single to Byte, SByte, UShort, Short, UInteger, Integer, ULong, Long, or Decimal.
+        '•	From Double to Byte, SByte, UShort, Short, UInteger, Integer, ULong, Long, Decimal, or Single.
+        If isFromNullable = False AndAlso isToNullable = False Then
+            Select Case fromTC
+                Case TypeCode.Byte, TypeCode.SByte, TypeCode.UInt16, TypeCode.Int16, TypeCode.UInt32, TypeCode.Int32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Decimal, TypeCode.Single
+                    If toTC <> TypeCode.Object AndAlso Compiler.TypeResolution.IsExplicitlyConvertible(Compiler, fromTC, toTC) Then
+                        If isStrict Then
+                            If ShowError Then
+                                If Helper.CompareType(TypeCache.System_Char, DestinationType) Then
+                                    If Helper.CompareType(TypeCache.System_Decimal, FromType) OrElse Helper.CompareType(TypeCache.System_Double, FromType) OrElse Helper.CompareType(TypeCache.System_Single, FromType) OrElse Helper.CompareType(TypeCache.System_DBNull, FromType) OrElse Helper.CompareType(TypeCache.System_DateTime, FromType) Then
+                                        Compiler.Report.ShowMessage(Messages.VBNC30311, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                                    Else
+                                        Compiler.Report.ShowMessage(Messages.VBNC32007, Parent.Location, Helper.ToString(Compiler, FromType))
+                                    End If
+                                ElseIf Helper.CompareType(TypeCache.System_DateTime, DestinationType) Then
+                                    Compiler.Report.ShowMessage(Messages.VBNC30311, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                                ElseIf Helper.CompareType(TypeCache.System_DBNull, DestinationType) Then
+                                    Compiler.Report.ShowMessage(Messages.VBNC30311, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                                Else
+                                    Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                                End If
+                            End If
+                            Return False
+                        End If
+                        If CreateConversionExpression Then
+                            convExpr = New CTypeExpression(Parent, FromExpression, DestinationType, CTypeConversionType.Intrinsic)
+                            If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                        End If
+                        Return True
+                    End If
+                Case TypeCode.Boolean, TypeCode.Double
+                    If toTC <> TypeCode.Object AndAlso Compiler.TypeResolution.IsExplicitlyConvertible(Compiler, fromTC, toTC) Then
+                        If isStrict Then
+                            If ShowError Then
+                                If Helper.CompareType(TypeCache.System_Char, DestinationType) Then
+                                    Compiler.Report.ShowMessage(Messages.VBNC30311, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                                ElseIf Helper.CompareType(TypeCache.System_DateTime, DestinationType) Then
+                                    If Helper.CompareType(TypeCache.System_Double, FromType) Then
+                                        Compiler.Report.ShowMessage(Messages.VBNC30533, Parent.Location)
+                                    Else
+                                        Compiler.Report.ShowMessage(Messages.VBNC30311, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                                    End If
+                                ElseIf Helper.CompareType(TypeCache.System_DBNull, DestinationType) Then
+                                    Compiler.Report.ShowMessage(Messages.VBNC30311, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                                Else
+                                    Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                                End If
+                            End If
+                            Return False
+                        End If
+                        If CreateConversionExpression Then
+                            convExpr = New CTypeExpression(Parent, FromExpression, DestinationType)
+                            If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                        End If
+                        Return True
+                    End If
+            End Select
+        End If
+
+        'Reference conversions
+        If toTD IsNot Nothing AndAlso toTD.IsValueType Then
+            '•	From a reference type to a more derived value type.
+            If Helper.CompareType(FromType, Parent.Compiler.TypeCache.System_Object) OrElse Helper.CompareType(FromType, Parent.Compiler.TypeCache.System_ValueType) Then
+                If isStrict Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                    Return False
+                End If
+                If CreateConversionExpression Then
+                    If Helper.IsIntrinsicType(Compiler, DestinationType) Then
+                        convExpr = New CTypeExpression(Parent, convExpr, DestinationType)
+                    Else
+                        convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.Unbox_Ldobj)
+                    End If
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+            '•	From an interface type to a value type, provided the value type implements the interface type
+            If fromTD.IsInterface AndAlso Helper.DoesTypeImplementInterface(Parent, DestinationType, FromType) Then
+                If isStrict Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                    Return False
+                End If
+                If CreateConversionExpression Then
+                    convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.Unbox_Ldobj)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+        End If
+
+        'Nullable Value Type conversions
+        If fromTD IsNot Nothing AndAlso fromTD.IsValueType Then
+            Dim nulledTo As TypeReference = Nothing
+            Dim nulledFrom As TypeReference = Nothing
+
+            If isFromNullable Then nulledFrom = CecilHelper.GetNulledType(FromType)
+            If isToNullable Then nulledTo = CecilHelper.GetNulledType(DestinationType)
+
+            '•	From a type T to the type T?.
+            If isFromNullable = False AndAlso isToNullable AndAlso Helper.CompareType(nulledTo, FromType) Then
+                If CreateConversionExpression Then
+                    convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.ToNullable)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+
+            '•	From a type T? to a type S?, where there is a widening conversion from the type T to the type S.
+            If isFromNullable AndAlso isToNullable AndAlso IsConvertible(Parent, FromExpression, nulledFrom, nulledTo, False, Nothing, False, True) Then
+                If CreateConversionExpression Then
+                    convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.NullableToNullable)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+
+            '•	From a type T to a type S?, where there is a widening conversion from the type T to the type S.
+            If isFromNullable = False AndAlso isToNullable AndAlso IsConvertible(Parent, FromExpression, FromType, nulledTo, False, Nothing, False, True) Then
+                If CreateConversionExpression Then
+                    convExpr = New CTypeExpression(Parent, convExpr, nulledTo, CTypeConversionType.Intrinsic)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                    convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.ToNullable)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+
+            '•	From a type T? to an interface type that the type T implements.
+            If isFromNullable AndAlso toTD.IsInterface AndAlso Helper.DoesTypeImplementInterface(Parent, nulledFrom, DestinationType) Then
+                If CreateConversionExpression Then
+                    convExpr = New BoxExpression(Parent, convExpr, FromType)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                    convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.Castclass)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+
+            'narrowing conversions
+            '•	From a type T? to a type T.
+            If isFromNullable AndAlso isToNullable = False AndAlso Helper.CompareType(nulledFrom, DestinationType) Then
+                If isStrict Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                    Return False
+                End If
+                If CreateConversionExpression Then
+                    convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.FromNullable)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+            '•	From a type T? to a type S?, where there is a narrowing conversion from the type T to the type S.
+            If isFromNullable AndAlso isToNullable AndAlso IsConvertible(Parent, FromExpression, nulledFrom, nulledTo, False, Nothing, False, False) Then
+                If isStrict Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                    Return False
+                End If
+                If CreateConversionExpression Then
+                    'denullify
+                    convExpr = New CTypeExpression(Parent, convExpr, nulledFrom, CTypeConversionType.FromNullable)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                    'convert
+                    If Not IsConvertible(Parent, convExpr, nulledFrom, nulledTo, True, convExpr, True, isStrict) Then Return False
+                    'renullify
+                    convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.ToNullable)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+            '•	From a type T to a type S?, where there is a narrowing conversion from the type T to the type S.
+            If isFromNullable = False AndAlso isToNullable AndAlso IsConvertible(Parent, FromExpression, FromType, nulledTo, False, Nothing, False, False) Then
+                If isStrict Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                    Return False
+                End If
+                If CreateConversionExpression Then
+                    'convert
+                    If Not IsConvertible(Parent, convExpr, FromType, nulledTo, True, convExpr, True, isStrict) Then Return False
+                    'renullify
+                    convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.ToNullable)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+            '•	From a type S? to a type T, where there is a conversion from the type S to the type T.
+            If isFromNullable AndAlso isToNullable = False AndAlso IsConvertible(Parent, FromExpression, nulledFrom, DestinationType, False, Nothing, False, False) Then
+                If isStrict Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                    Return False
+                End If
+                If CreateConversionExpression Then
+                    'denullify
+                    convExpr = New CTypeExpression(Parent, convExpr, nulledFrom, CTypeConversionType.FromNullable)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                    'convert
+                    If Not IsConvertible(Parent, convExpr, nulledFrom, DestinationType, True, convExpr, True, Nothing) Then Return False
+                End If
+                Return True
+            End If
+        End If
+
+        'String conversions
+        If Helper.CompareType(DestinationType, Compiler.TypeCache.System_String) Then
+            '•	From Char to String.
+            '•	From Char() to String.
+            If Helper.CompareType(FromType, Compiler.TypeCache.System_Char) OrElse Helper.CompareType(FromType, Compiler.TypeCache.System_Char_Array) Then
+                If CreateConversionExpression Then
+                    convExpr = New CStrExpression(Parent, FromExpression)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+            If fromTC <> TypeCode.DBNull AndAlso (fromTC <> TypeCode.Object OrElse Helper.CompareType(TypeCache.System_Object, FromType)) Then
+                If isStrict Then
+                    If ShowError Then
+                        If Helper.CompareType(TypeCache.System_DBNull, FromType) Then
+                            Compiler.Report.ShowMessage(Messages.VBNC30311, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                        Else
+                            Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                        End If
+                    End If
+                    Return False
+                End If
+                If CreateConversionExpression Then
+                    convExpr = New CTypeExpression(Parent, FromExpression, DestinationType)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+        ElseIf Helper.CompareType(FromType, TypeCache.System_String) Then
+            '•	From String to Char.
+            If Helper.CompareType(DestinationType, Compiler.TypeCache.System_Char) Then
+                If isStrict Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                    Return False
+                End If
+                If CreateConversionExpression Then
+                    convExpr = New CCharExpression(Parent, FromExpression)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+            '•	From String to Char().
+            If Helper.CompareType(DestinationType, Compiler.TypeCache.System_Char_Array) Then
+                If isStrict Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                    Return False
+                End If
+                If CreateConversionExpression Then
+                    convExpr = New CTypeExpression(Parent, FromExpression, Compiler.TypeCache.System_Char_Array)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+            '•	From String to Boolean and from Boolean to String.
+            '•	Conversions between String and Byte, SByte, UShort, Short, UInteger, Integer, ULong, Long, Decimal, Single, or Double.
+            '•	From String to Date and from Date to String.
+            'from boolean is handled in the numeric conversion code
+            If toTC <> TypeCode.Object Then
+                If isStrict Then
+                    If ShowError Then
+                        If Helper.CompareType(TypeCache.System_DBNull, DestinationType) Then
+                            Compiler.Report.ShowMessage(Messages.VBNC30311, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                        Else
+                            Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                        End If
+                    End If
+                    Return False
+                End If
+                If CreateConversionExpression Then
+                    convExpr = New CTypeExpression(Parent, FromExpression, DestinationType)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+        End If
+
+        'Type Parameter conversions
+        fromTG = TryCast(FromType, GenericParameter)
+        If fromTG IsNot Nothing Then
+            '•	From a type parameter to Object.
+            If Helper.CompareType(DestinationType, Parent.Compiler.TypeCache.System_Object) Then
+                If CreateConversionExpression Then
+                    convExpr = New BoxExpression(Parent, convExpr, DestinationType)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+
+            If fromTG.HasConstraints Then
+                For i As Integer = 0 To fromTG.Constraints.Count - 1
+                    Dim constraint As TypeReference = fromTG.Constraints(i)
+
+                    '•	From a type parameter to an interface type constraint or any interface variant compatible with an interface type constraint.
+                    ' Same implementation as "From a type parameter to a class constraint, or a base type of the class constraint." below
+
+                    '•	From a type parameter to an interface implemented by a class constraint.
+                    If toTD IsNot Nothing AndAlso toTD.IsInterface Then
+                        If Helper.DoesTypeImplementInterface(Parent, constraint, DestinationType) Then
+                            If CreateConversionExpression Then
+                                convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.Box)
+                                If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                                convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.Castclass)
+                                If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                            End If
+                            Return True
+                        End If
+                    End If
+
+                    '•	From a type parameter to an interface variant compatible with an interface implemented by a class constraint.
+                    'TODO
+
+                    '•	From a type parameter to a class constraint, or a base type of the class constraint.
+                    If Helper.CompareType(constraint, DestinationType) Then
+                        If CreateConversionExpression Then
+                            convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.Box)
+                            If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                            convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.Castclass)
+                            If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                        End If
+                        Return True
+                    End If
+                    If Helper.IsSubclassOf(DestinationType, fromTG.Constraints(i)) Then
+                        If CreateConversionExpression Then
+                            convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.Box)
+                            If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                            convExpr = New CTypeExpression(Parent, convExpr, DestinationType, CTypeConversionType.Castclass)
+                            If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                        End If
+                        Return True
+                    End If
+
+                    '•	From a type parameter T to a type parameter constraint TX, or anything TX has a widening conversion to.
+                    'TODO
+
+                Next
+            End If
+
+            'narrowing conversions
+            '•	From Object to a type parameter (handled below)
+            '•	From a type parameter to an interface type, provided the type parameter is not constrained to that interface or constrained to a class that implements that interface.
+            If toTD IsNot Nothing AndAlso toTD.IsInterface Then
+                If isStrict Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                    Return False
+                End If
+                If CreateConversionExpression Then
+                    convExpr = New CTypeExpression(Parent, FromExpression, DestinationType, CTypeConversionType.Castclass)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+            '•	From an interface type to a type parameter (handled below)
+            If fromTG.HasConstraints Then
+                For i As Integer = 0 To fromTG.Constraints.Count - 1
+                    Dim constraint As TypeReference = fromTG.Constraints(i)
+
+                    '•	From a type parameter to a derived type of a class constraint.
+                    If CecilHelper.IsClass(constraint) Then 'A bit more is needed here
+                        If isStrict Then
+                            If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30311, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                            Return False
+                        End If
+                        If CreateConversionExpression Then
+                            convExpr = New CTypeExpression(Parent, FromExpression, DestinationType, CTypeConversionType.Box_CastClass)
+                            If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                        End If
+                        Return True
+                    End If
+
+                    '•	From a type parameter T to anything a type parameter constraint TX has a narrowing conversion to.
+                    If IsConvertible(Parent, convExpr, constraint, DestinationType, False, Nothing, False, Nothing) Then
+                        If isStrict Then
+                            If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                            Return False
+                        End If
+                        If CreateConversionExpression Then
+                            convExpr = New CTypeExpression(Parent, convExpr, constraint, CTypeConversionType.Box_CastClass)
+                            If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                            If Not IsConvertible(Parent, convExpr, constraint, DestinationType, True, convExpr, True, Nothing) Then Return True
+                        End If
+                        Return True
+                    End If
+                Next
+            End If
+
+            If ShowError Then
+                Compiler.Report.ShowMessage(Messages.VBNC30311, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+            End If
+            Return False
+        End If
+
+        toTG = TryCast(DestinationType, GenericParameter)
+        If toTG IsNot Nothing Then
+            '•	From Object to a type parameter.
+            '•	From an interface type to a type parameter.
+            If Helper.CompareType(FromType, TypeCache.System_Object) OrElse (fromTD IsNot Nothing AndAlso fromTD.IsInterface) Then
+                If isStrict Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                    Return False
+                End If
+                If CreateConversionExpression Then
+                    convExpr = New CTypeExpression(Parent, FromExpression, DestinationType, CTypeConversionType.MS_VB_CS_Conversions_ToGenericParameter)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                End If
+                Return True
+            End If
+        End If
+
+        'Reference (narrowing) conversions
+        If fromTD IsNot Nothing AndAlso toTD IsNot Nothing Then
+            If ((fromTD.IsInterface OrElse fromTD.IsClass) AndAlso fromTD.IsValueType = False) AndAlso (toTD.IsInterface OrElse toTD.IsClass) AndAlso toTD.IsValueType = False Then
+                '•	From a reference type to a more derived type.
+                If Helper.IsSubclassOf(FromType, DestinationType) Then
+                    If isStrict Then
+                        If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                        Return False
+                    End If
+                    convExpr = New CTypeExpression(Parent, FromExpression, DestinationType, CTypeConversionType.Castclass)
+                    If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                    Return True
+                End If
+                '•	From a class type to an interface type, provided the class type does not implement the interface type or an interface type variant compatible with it.
+                '•	From an interface type to a class type. 
+                '•	From an interface type to another interface type, provided there is no inheritance relationship between the two types and provided they are not variant compatible.
+                'Put those 3 conditions in one bug chunk here
+                If fromTD.IsInterface OrElse toTD.IsInterface Then
+                    If isStrict Then
+                        If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30512, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                        Return False
+                    End If
+                    If CreateConversionExpression Then
+                        convExpr = New CTypeExpression(Parent, FromExpression, DestinationType, CTypeConversionType.Castclass)
+                        If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+                    End If
+                    Return True
+                End If
+            End If
+        End If
+
+        'Check user defined operators
+        If fromTD IsNot Nothing AndAlso toTD IsNot Nothing AndAlso _
+            ((fromTC = TypeCode.Object AndAlso Helper.CompareType(TypeCache.System_Object, DestinationType) = False) OrElse _
+                (toTC = TypeCode.Object AndAlso Helper.CompareType(TypeCache.System_Object, DestinationType) = False)) Then
+            'user-defined operators can only exist if either the from or to type aren't intrinsic types
+
+            Dim ops As Generic.List(Of MethodReference)
+            Dim isNarrowing As Boolean
+            ops = Helper.GetWideningConversionOperators(Compiler, FromType, DestinationType)
+
+            If ops Is Nothing OrElse ops.Count = 0 Then
+                ops = Helper.GetNarrowingConversionOperators(Compiler, FromType, DestinationType)
+                isNarrowing = True
+            End If
+
+            If ops Is Nothing OrElse ops.Count = 0 Then
+                If ShowError Then
+                    If isFromNullable AndAlso isToNullable AndAlso Compiler.TypeResolver.IsExplicitlyConvertible(Compiler, Helper.GetTypeCode(Compiler, CecilHelper.GetNulledType(FromType)), Helper.GetTypeCode(Compiler, CecilHelper.GetNulledType(DestinationType))) Then
+                        Compiler.Report.ShowMessage(Messages.VBNC30512, FromExpression.Location, Helper.ToString(FromExpression, FromType), Helper.ToString(FromExpression, DestinationType))
+                    Else
+                        Compiler.Report.ShowMessage(Messages.VBNC30311, FromExpression.Location, Helper.ToString(FromExpression, FromType), Helper.ToString(FromExpression, DestinationType))
+                    End If
+                End If
+                Return False
+            End If
+
+            If ops.Count > 1 Then
+                If ShowError Then
+                    Return Compiler.Report.ShowMessage(Messages.VBNC30311, FromExpression.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                End If
+                Return False
+            End If
+
+            If isNarrowing AndAlso isStrict.Value Then
+                If ShowError Then
+                    Return Compiler.Report.ShowMessage(Messages.VBNC30512, FromExpression.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                End If
+                Return False
+            End If
+
+            If CreateConversionExpression Then
+                convExpr = New CTypeExpression(Parent, FromExpression, DestinationType, CTypeConversionType.UserDefinedOperator)
+                DirectCast(convExpr, CTypeExpression).ConversionMethod = ops(0)
+                If Not convExpr.ResolveExpression(ResolveInfo.Default(Compiler)) Then Return False
+            End If
+            Return True
+        End If
+
+
+        If ShowError Then
+            If Helper.CompareType(TypeCache.System_DBNull, DestinationType) Then
+                Compiler.Report.ShowMessage(Messages.VBNC30311, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+            ElseIf Helper.CompareType(TypeCache.System_Char, FromType) Then
+                If Helper.CompareType(TypeCache.System_DateTime, DestinationType) OrElse Helper.CompareType(TypeCache.System_Double, DestinationType) OrElse Helper.CompareType(TypeCache.System_Single, DestinationType) OrElse Helper.CompareType(TypeCache.System_Decimal, DestinationType) OrElse Helper.Compare(TypeCache.System_Boolean, DestinationType) Then
+                    Compiler.Report.ShowMessage(Messages.VBNC30311, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                Else
+                    Compiler.Report.ShowMessage(Messages.VBNC32006, Parent.Location, Helper.ToString(Compiler, DestinationType))
+                End If
+            ElseIf Helper.CompareType(TypeCache.System_Char, DestinationType) Then
+                If Helper.CompareType(TypeCache.System_Decimal, FromType) OrElse Helper.CompareType(TypeCache.System_Double, FromType) OrElse Helper.CompareType(TypeCache.System_Single, FromType) OrElse Helper.CompareType(TypeCache.System_DBNull, FromType) OrElse Helper.CompareType(TypeCache.System_DateTime, FromType) OrElse Helper.CompareType(TypeCache.System_Boolean, FromType) Then
+                    Compiler.Report.ShowMessage(Messages.VBNC30311, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+                Else
+                    Compiler.Report.ShowMessage(Messages.VBNC32007, Parent.Location, Helper.ToString(Compiler, FromType))
+                End If
+            ElseIf Helper.CompareType(TypeCache.System_DateTime, FromType) AndAlso Helper.CompareType(TypeCache.System_Double, DestinationType) Then
+                Compiler.Report.ShowMessage(Messages.VBNC30532, Parent.Location)
+            ElseIf Helper.CompareType(TypeCache.System_DateTime, DestinationType) AndAlso Helper.CompareType(TypeCache.System_Double, FromType) Then
+                Compiler.Report.ShowMessage(Messages.VBNC30533, Parent.Location)
+            Else
+                Compiler.Report.ShowMessage(Messages.VBNC30311, Parent.Location, Helper.ToString(Compiler, FromType), Helper.ToString(Compiler, DestinationType))
+            End If
+        End If
+        Return False
     End Function
 
     ''' <summary>
@@ -3059,29 +3877,37 @@ Public Class Helper
     ''' <returns></returns>
     ''' <remarks></remarks>
     Overloads Shared Function ToString(ByVal Context As BaseObject, ByVal Params As Mono.Collections.Generic.Collection(Of ParameterDefinition)) As String
-        Dim result As String = ""
-        Dim sep As String = ""
+        Dim result As New Text.StringBuilder()
 
+        result.Append("(")
         For i As Integer = 0 To Params.Count - 1
             Dim t As Mono.Cecil.ParameterDefinition = Params(i)
-            Dim tmp As String
-            If CecilHelper.IsByRef(t.ParameterType) Then
-                tmp = "ByRef " & CecilHelper.GetElementType(t.ParameterType).ToString
-            Else
-                tmp = t.ParameterType.ToString
+            Dim tmp As String = String.Empty
+            Dim tp As TypeReference
+
+            tp = t.ParameterType
+            If CecilHelper.IsByRef(tp) Then
+                result.Append("ByRef ")
+                tp = CecilHelper.GetElementType(tp)
             End If
             If t.IsOptional Then
-                tmp = "Optional " & tmp
+                result.Append("Optional ")
             End If
             If Helper.IsParamArrayParameter(Context, t) Then
-                tmp = "ParamArray " & tmp
+                result.Append("ParamArray ")
             End If
-            result = result & sep & tmp
-            sep = ", "
+            result.Append(t.Name)
+            If CecilHelper.IsArray(tp) AndAlso CecilHelper.GetArrayRank(tp) = 1 Then
+                result.Append("()")
+                tp = CecilHelper.GetElementType(tp)
+            End If
+            result.Append(" As ")
+            result.Append(ToString(Context, tp))
+            If i < Params.Count - 1 Then result.Append(", ")
         Next
+        result.Append(")")
 
-        Return "(" & result & ")"
-
+        Return result.ToString()
     End Function
 
     Shared Function IsParamArrayParameter(ByVal Context As BaseObject, ByVal Parameter As Mono.Cecil.ParameterReference) As Boolean
@@ -3090,6 +3916,63 @@ Public Class Helper
         result = CecilHelper.IsDefined(pD.CustomAttributes, Context.Compiler.TypeCache.System_ParamArrayAttribute)
         LogResolutionMessage(Context.Compiler, "IsParamArrayParameter: result=" & result & ", ParamArrayAttribute=" & Context.Compiler.TypeCache.System_ParamArrayAttribute.FullName)
         Return result
+    End Function
+
+    Shared Function GetMemberName(ByVal Member As MemberReference) As String
+        Dim mr As MethodReference = TryCast(Member, MethodReference)
+        If mr IsNot Nothing Then Return GetMethodName(mr)
+        Return Member.Name
+    End Function
+
+    Shared Function GetMethodName(ByVal Method As MethodReference) As String
+        Select Case Method.Name
+            Case "op_BitwiseAnd", "op_LogicalAnd"
+                Return "And"
+            Case "op_Like"
+                Return "Like"
+            Case "op_Modulus"
+                Return "Mod"
+            Case "op_BitwiseOr", "op_LogicalOr"
+                Return "Or"
+            Case "op_ExclusiveOr"
+                Return "XOr"
+            Case "op_LessThan"
+                Return "<"
+            Case "op_GreaterThan"
+                Return ">"
+            Case "op_Equality"
+                Return "="
+            Case "op_Inequality"
+                Return "<>"
+            Case "op_LessThanOrEqual"
+                Return "<="
+            Case "op_GreaterThanOrEqual"
+                Return ">="
+            Case "op_Concatenate"
+                Return "&"
+            Case "op_Multiply"
+                Return "*"
+            Case "op_Addition"
+                Return "+"
+            Case "op_Subtraction"
+                Return "-"
+            Case "op_Exponent"
+                Return "^"
+            Case "op_Division"
+                Return "/"
+            Case "op_IntegerDivision"
+                Return "\"
+            Case "op_LeftShift", "op_SignedRightShift"
+                Return "<<"
+            Case "op_RightShift", "op_UnsignedRightShift"
+                Return ">>"
+            Case "op_True"
+                Return "IsTrue"
+            Case "op_False"
+                Return "IsFalse"
+            Case Else
+                Return Method.Name
+        End Select
     End Function
 
     Overloads Shared Function ToString(ByVal Types As Mono.Cecil.TypeReference()) As String
@@ -3136,7 +4019,6 @@ Public Class Helper
                 Return "<unknown>"
         End Select
     End Function
-
 
     Overloads Shared Function ToString(ByVal Accessibility As Mono.Cecil.FieldAttributes) As String
         Select Case Accessibility
@@ -3199,6 +4081,8 @@ Public Class Helper
         Dim builder As New Text.StringBuilder()
         Dim isSub As Boolean = Helper.CompareType(Member.ReturnType, Context.Compiler.TypeCache.System_Void)
 
+        builder.Append(ToString(GetAccessibility(Member)))
+        builder.Append(" ")
         If Helper.CompareNameOrdinal(Member.Name, ".ctor") Then
             builder.Append("Sub New(")
             builder.Append(Helper.ToString(Context, Helper.GetParameters(Context, Member)))
@@ -3250,16 +4134,17 @@ Public Class Helper
                 Next
                 builder.Append(")")
             End If
-            builder.Append("(")
-            For i As Integer = 0 To Member.Parameters.Count - 1
-                If i > 0 Then builder.Append(", ")
-                Dim param As ParameterDefinition = Member.Parameters(i)
-                If CecilHelper.IsByRef(param.ParameterType) Then builder.Append("ByRef ")
-                builder.Append(param.Name)
-                builder.Append(" As ")
-                builder.Append(Helper.ToString(Context, param.ParameterType))
-            Next
-            builder.Append(")")
+            'builder.Append("(")
+            'For i As Integer = 0 To Member.Parameters.Count - 1
+            'If i > 0 Then builder.Append(", ")
+            'Dim param As ParameterDefinition = Member.Parameters(i)
+            'If CecilHelper.IsByRef(param.ParameterType) Then builder.Append("ByRef ")
+            'builder.Append(param.Name)
+            'builder.Append(" As ")
+            'builder.Append(Helper.ToString(Context, param.ParameterType))
+            builder.Append(Helper.ToString(Context, Member.Parameters))
+            'Next
+            'builder.Append(")")
             If isSub = False Then
                 builder.Append(" As ")
                 builder.Append(Helper.ToString(Context, Member.ReturnType))
@@ -3300,7 +4185,7 @@ Public Class Helper
             ElseIf Helper.CompareType(Member, Context.Compiler.TypeCache.System_DateTime) Then
                 Return "Date"
             ElseIf Helper.CompareType(Member, Context.Compiler.TypeCache.System_DBNull) Then
-                Return "DBNull"
+                Return "System.DBNull"
             ElseIf Helper.CompareType(Member, Context.Compiler.TypeCache.System_Decimal) Then
                 Return "Decimal"
             ElseIf Helper.CompareType(Member, Context.Compiler.TypeCache.System_Double) Then
@@ -3323,10 +4208,35 @@ Public Class Helper
                 Return "UInteger"
             ElseIf Helper.CompareType(Member, Context.Compiler.TypeCache.System_UInt64) Then
                 Return "ULong"
+            ElseIf Helper.CompareType(Member, Context.Compiler.TypeCache.System_Object) Then
+                Return "Object"
             Else
                 Return Member.ToString()
             End If
         End If
+    End Function
+
+    Overloads Shared Function ToString(ByVal Context As BaseObject, ByVal Member As PropertyReference) As String
+        Dim builder As New Text.StringBuilder()
+        Dim pd As PropertyDefinition = CecilHelper.FindDefinition(Member)
+
+        builder.Append(ToString(GetAccessibility(pd)))
+        builder.Append(" ")
+        If pd.GetMethod Is Nothing Then
+            builder.Append("WriteOnly ")
+        ElseIf pd.SetMethod Is Nothing Then
+            builder.Append("ReadOnly ")
+        End If
+        If IsDefaultProperty(Context.Compiler, pd) Then
+            builder.Append("Default ")
+        End If
+        builder.Append("Property ")
+        builder.Append(Member.Name)
+        builder.Append(Helper.ToString(Context, Helper.GetParameters(Context, Member)))
+        builder.Append(" As ")
+        builder.Append(Helper.ToString(Context, pd.PropertyType))
+
+        Return builder.ToString()
     End Function
 
     Overloads Shared Function ToString(ByVal Context As BaseObject, ByVal Member As Mono.Cecil.MemberReference) As String
@@ -3338,7 +4248,7 @@ Public Class Helper
         If methodReference IsNot Nothing Then Return ToString(Context, methodReference)
 
         propertyReference = TryCast(Member, PropertyReference)
-        If propertyReference IsNot Nothing Then Return Member.Name & "(" & Helper.ToString(Context, Helper.GetParameters(Context, Member)) & ")"
+        If propertyReference IsNot Nothing Then Return ToString(Context, propertyReference)
 
         typeReference = TryCast(Member, TypeReference)
         If typeReference IsNot Nothing Then Return ToString(Context, DirectCast(Member, TypeReference))
@@ -3448,7 +4358,8 @@ Public Class Helper
             isEqual = Helper.CompareType(MTypes(i), NTypes(i))
 
             '*	There exists a widening conversion from the type of Mj to the type Nj, or
-            isWidening = Compiler.TypeResolution.IsImplicitlyConvertible(Context, MTypes(i), NTypes(i))
+            'isWidening = Compiler.TypeResolution.IsImplicitlyConvertible(Context, MTypes(i), NTypes(i))
+            isWidening = Helper.IsConvertible(Arguments(i), Arguments(i).Expression, MTypes(i), NTypes(i), False, Nothing, False, True, False)
 
             '*	Aj is the literal 0, Mj is a numeric type and Nj is an enumerated type, or
             isLiteral0 = IsLiteral0Expression(Compiler, Arguments(i).Expression) AndAlso Compiler.TypeResolution.IsNumericType(MTypes(i)) AndAlso Helper.IsEnum(Compiler, NTypes(i))
@@ -3487,12 +4398,14 @@ Public Class Helper
     End Function
 
     Shared Function IsLiteral0Expression(ByVal Compiler As Compiler, ByVal exp As Expression) As Boolean
+        Dim constant As Object = Nothing
+
         If exp Is Nothing Then Return False
         Dim litExp As LiteralExpression = TryCast(exp, LiteralExpression)
         If litExp Is Nothing Then Return False
-        If litExp.ConstantValue Is Nothing Then Return False
-        If Compiler.TypeResolution.IsIntegralType(CecilHelper.GetType(Compiler, litExp.ConstantValue)) = False Then Return False
-        If CDbl(litExp.ConstantValue) = 0.0 Then Return True
+        If litExp.GetConstant(constant, False) = False Then Return False
+        If Compiler.TypeResolution.IsIntegralType(CecilHelper.GetType(Compiler, constant)) = False Then Return False
+        If CDbl(constant) = 0.0 Then Return True
         Return False
     End Function
 
@@ -3880,7 +4793,6 @@ Public Class Helper
         Return CType(CInt(tp1) << TypeCombinations.SHIFT Or CInt(tp2), TypeCombinations)
     End Function
 
-
     Shared Function ShowClassificationError(ByVal Compiler As Compiler, ByVal Location As Span, ByVal ActualClassification As ExpressionClassification, ByVal Expected As String) As Boolean
         Select Case ActualClassification.Classification
             Case ExpressionClassification.Classifications.Type
@@ -3888,11 +4800,23 @@ Public Class Helper
                 Return Compiler.Report.ShowMessage(Messages.VBNC30691, Location, tp.Name, tp.Namespace)
             Case ExpressionClassification.Classifications.Value
                 Dim vC As ValueClassification = ActualClassification.AsValueClassification
-                If vC.IsConstant Then
+                Dim constant As Object = Nothing
+                If vC.GetConstant(constant, False) Then
                     Return Compiler.Report.ShowMessage(Messages.VBNC30074, Location)
+                ElseIf vC.ReclassifiedClassification IsNot Nothing AndAlso vC.ReclassifiedClassification.IsVariableClassification Then
+                    Dim vVar As VariableClassification = vC.ReclassifiedClassification.AsVariableClassification
+                    If vVar.FieldDefinition IsNot Nothing AndAlso (vVar.FieldDefinition.Attributes And Mono.Cecil.FieldAttributes.InitOnly) = Mono.Cecil.FieldAttributes.InitOnly Then
+                        Return Compiler.Report.ShowMessage(Messages.VBNC30064, Location)
+                    ElseIf vVar.GetConstant(constant, False) Then
+                        Return Compiler.Report.ShowMessage(Messages.VBNC30074, Location)
+                    Else
+                        Helper.AddError(Compiler, Location, "Expected " & Expected & " got " & ActualClassification.Classification.ToString())
+                    End If
                 Else
                     Helper.AddError(Compiler, Location, "Expected " & Expected & " got " & ActualClassification.Classification.ToString())
                 End If
+            Case ExpressionClassification.Classifications.MethodGroup
+                Return Compiler.Report.ShowMessage(Messages.VBNC30068, Location)
             Case Else
                 Helper.AddError(Compiler, Location, "Expected " & Expected & " got " & ActualClassification.Classification.ToString())
         End Select
@@ -3961,7 +4885,7 @@ Public Class Helper
         Return GetMostEncompassedType(Compiler, types)
     End Function
 
-    Public Shared Function VerifyConstraints(ByVal Context As ParsedObject, ByVal parameters As Mono.Collections.Generic.Collection(Of GenericParameter), ByVal arguments As Mono.Collections.Generic.Collection(Of TypeReference)) As Boolean
+    Public Shared Function VerifyConstraints(ByVal Context As ParsedObject, ByVal parameters As Mono.Collections.Generic.Collection(Of GenericParameter), ByVal arguments As Mono.Collections.Generic.Collection(Of TypeReference), ByVal ShowErrors As Boolean) As Boolean
         Dim result As Boolean = True
 
         For i As Integer = 0 To Math.Min(parameters.Count, arguments.Count) - 1
@@ -3973,17 +4897,21 @@ Public Class Helper
                 If gt IsNot Nothing Then
                     If gt.HasDefaultConstructorConstraint = False AndAlso gt.HasNotNullableValueTypeConstraint = False Then
                         Dim tr As TypeReference = TryCast(param.Owner, TypeReference)
-                        If Helper.CompareType(tr, Context.Compiler.TypeCache.System_Nullable1) Then
-                            result = Context.Compiler.Report.ShowMessage(Messages.VBNC33101, Context.Location, Helper.ToString(Context, arg))
-                        Else
-                            result = Context.Compiler.Report.ShowMessage(Messages.VBNC32084, Context.Location, Helper.ToString(Context, arg), param.Name)
+                        If ShowErrors Then
+                            If Helper.CompareType(tr, Context.Compiler.TypeCache.System_Nullable1) Then
+                                result = Context.Compiler.Report.ShowMessage(Messages.VBNC33101, Context.Location, Helper.ToString(Context, arg))
+                            Else
+                                result = Context.Compiler.Report.ShowMessage(Messages.VBNC32084, Context.Location, Helper.ToString(Context, arg), param.Name)
+                            End If
                         End If
+                        result = False
                         Continue For
                     End If
                 Else
                     Dim ctor As MethodReference = Helper.GetDefaultConstructor(arg)
                     If (ctor Is Nothing OrElse Helper.IsPublic(ctor) = False) AndAlso CecilHelper.IsValueType(arg) = False Then
-                        result = Context.Compiler.Report.ShowMessage(Messages.VBNC32083, Context.Location, Helper.ToString(Context, arg), param.Name)
+                        If ShowErrors Then Context.Compiler.Report.ShowMessage(Messages.VBNC32083, Context.Location, Helper.ToString(Context, arg), param.Name)
+                        result = False
                         Continue For
                     End If
                 End If
@@ -3992,11 +4920,13 @@ Public Class Helper
             If param.HasNotNullableValueTypeConstraint Then
                 If gt Is Nothing Then
                     If CecilHelper.IsValueType(arg) = False Then
-                        result = Context.Compiler.Report.ShowMessage(Messages.VBNC32105, Context.Location, Helper.ToString(Context, arg), param.Name)
+                        If ShowErrors Then Context.Compiler.Report.ShowMessage(Messages.VBNC32105, Context.Location, Helper.ToString(Context, arg), param.Name)
+                        result = False
                     End If
                 Else
                     If gt.HasNotNullableValueTypeConstraint = False Then
-                        result = Context.Compiler.Report.ShowMessage(Messages.VBNC32105, Context.Location, Helper.ToString(Context, arg), param.Name)
+                        If ShowErrors Then Context.Compiler.Report.ShowMessage(Messages.VBNC32105, Context.Location, Helper.ToString(Context, arg), param.Name)
+                        result = False
                     End If
                 End If
             End If
@@ -4004,11 +4934,13 @@ Public Class Helper
             If param.HasReferenceTypeConstraint Then
                 If gt IsNot Nothing Then
                     If gt.HasReferenceTypeConstraint = False Then
-                        result = Context.Compiler.Report.ShowMessage(Messages.VBNC32106, Context.Location, Helper.ToString(Context, arg), param.Name)
+                        If ShowErrors Then Context.Compiler.Report.ShowMessage(Messages.VBNC32106, Context.Location, Helper.ToString(Context, arg), param.Name)
+                        result = False
                     End If
                 Else
                     If CecilHelper.IsClass(arg) = False Then
-                        result = Context.Compiler.Report.ShowMessage(Messages.VBNC32106, Context.Location, Helper.ToString(Context, arg), param.Name)
+                        If ShowErrors Then Context.Compiler.Report.ShowMessage(Messages.VBNC32106, Context.Location, Helper.ToString(Context, arg), param.Name)
+                        result = False
                     End If
                 End If
             End If
@@ -4023,11 +4955,13 @@ Public Class Helper
                     If gt Is Nothing Then
                         If Helper.IsInterface(Context, constr) Then
                             If Helper.DoesTypeImplementInterface(Context, arg, constr) = False Then
-                                result = Context.Compiler.Report.ShowMessage(Messages.VBNC32044, Context.Location, Helper.ToString(Context, arg), Helper.ToString(Context, constr))
+                                If ShowErrors Then Context.Compiler.Report.ShowMessage(Messages.VBNC32044, Context.Location, Helper.ToString(Context, arg), Helper.ToString(Context, constr))
+                                result = False
                             End If
                         Else
                             If Helper.IsSubclassOf(constr, arg) = False Then
-                                result = Context.Compiler.Report.ShowMessage(Messages.VBNC32044, Context.Location, Helper.ToString(Context, arg), Helper.ToString(Context, constr))
+                                If ShowErrors Then Context.Compiler.Report.ShowMessage(Messages.VBNC32044, Context.Location, Helper.ToString(Context, arg), Helper.ToString(Context, constr))
+                                result = False
                             End If
                         End If
                     Else
@@ -4044,7 +4978,8 @@ Public Class Helper
                             End If
                         Next
                         If found = False Then
-                            result = Context.Compiler.Report.ShowMessage(Messages.VBNC32044, Context.Location, Helper.ToString(Context, arg), Helper.ToString(Context, constr))
+                            If ShowErrors Then Context.Compiler.Report.ShowMessage(Messages.VBNC32044, Context.Location, Helper.ToString(Context, arg), Helper.ToString(Context, constr))
+                            result = False
                         End If
                     End If
                 Next
@@ -4053,5 +4988,4 @@ Public Class Helper
         Return result
     End Function
 End Class
-
 

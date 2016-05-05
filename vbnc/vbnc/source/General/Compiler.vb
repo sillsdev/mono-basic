@@ -308,6 +308,7 @@ Public Class Compiler
             Case vbnc.CommandLine.Targets.Module
                 Report.ShowMessage(Messages.VBNC99999, Span.CommandLineSpan, "Compiling modules (-target:module) hasn't been implemented yet.")
                 kind = Mono.Cecil.ModuleKind.NetModule
+                Return False
             Case vbnc.CommandLine.Targets.Winexe
                 kind = Mono.Cecil.ModuleKind.Windows
             Case Else
@@ -315,11 +316,13 @@ Public Class Compiler
         End Select
 
         Dim an As AssemblyNameDefinition = New AssemblyNameDefinition("dummy", New Version())
-        AssemblyBuilderCecil = AssemblyDefinition.CreateAssembly(an, IO.Path.GetFileNameWithoutExtension(OutFileName), kind)
+        Dim moduleParameters As New ModuleParameters()
+        moduleParameters.Kind = kind
+        moduleParameters.AssemblyResolver = AssemblyResolver
+        AssemblyBuilderCecil = AssemblyDefinition.CreateAssembly(an, IO.Path.GetFileNameWithoutExtension(OutFileName), moduleParameters)
         ModuleBuilderCecil = AssemblyBuilderCecil.MainModule
         ModuleBuilderCecil.Name = IO.Path.GetFileName(OutFileName)
         ModuleBuilderCecil.Runtime = TypeManager.Corlib.MainModule.Runtime
-        ModuleBuilderCecil.AssemblyResolver = AssemblyResolver
         If CommandLine.Verbose Then Report.WriteLine(String.Format("Using runtime version: {0}", ModuleBuilderCecil.Runtime))
         Return Compiler.Report.Errors = 0
     End Function
@@ -343,7 +346,6 @@ Public Class Compiler
         Try
             theAss = New AssemblyDeclaration(Me)
             result = Parser.Parse(RootNamespace, theAss) AndAlso result
-            theAss.Initialize(Me)
         Catch ex As TooManyErrorsException
             Throw
         Catch ex As vbncException
@@ -377,11 +379,19 @@ Public Class Compiler
         VerifyConsistency(result, "CreateImplicitTypes")
         If result = False Then Return result
 
+        result = theAss.ResolveBaseTypes AndAlso result
+        VerifyConsistency(result, "ResolveBaseTypes")
+        If result = False Then Return result
+
         result = theAss.ResolveTypeReferences AndAlso result
         VerifyConsistency(result, "ResolveTypeReferences")
         If result = False Then Return result
 
         m_TypeCache.InitInternalVBMembers()
+
+        result = theAss.CreateMyGroupMembers AndAlso result
+        VerifyConsistency(result, "CreateMyGroupMembers")
+        If result = False Then Return result
 
         result = theAss.CreateImplicitMembers AndAlso result
         VerifyConsistency(result, "CreateImplicitMembers")
@@ -389,9 +399,26 @@ Public Class Compiler
 
         result = theAss.ResolveMembers AndAlso result
         VerifyConsistency(result, "ResolveMembers")
-        result = theAss.ResolveCode(ResolveInfo.Default(Me)) AndAlso result
+        If result = False Then Return result
 
-        VerifyConsistency(result, "FinishedResolve")
+        result = theAss.DefineConstants AndAlso result
+        VerifyConsistency(result, "DefineConstants")
+        If result = False Then Return result
+
+        result = theAss.DefineOptionalParameters AndAlso result
+        VerifyConsistency(result, "DefineOptionalParameters")
+        If result = False Then Return result
+
+        result = theAss.CreateImplicitSharedConstructors AndAlso result
+        VerifyConsistency(result, "CreateImplicitSharedConstructors")
+        If result = False Then Return result
+
+        result = theAss.ResolveCode(ResolveInfo.Default(Me)) AndAlso result
+        VerifyConsistency(result, "ResovleCode")
+
+        result = theAss.DefineSecurityDeclarations AndAlso result
+        VerifyConsistency(result, "DefineSecurityDeclarations")
+        If result = False Then Return result
 
         Return result
     End Function
@@ -445,12 +472,14 @@ Public Class Compiler
             If Not CommandLine.References.Contains("mscorlib.dll") Then
                 CommandLine.References.Add("mscorlib.dll")
             End If
+            If CommandLine.NoStdLib = False AndAlso Not CommandLine.References.Contains("System.dll") Then
+                CommandLine.References.Add("System.dll")
+            End If
 
             If Not String.IsNullOrEmpty(CommandLine.VBRuntime) Then
                 CommandLine.References.Add(CommandLine.VBRuntime)
             End If
 
-            m_Helper = New Helper(Me)
             m_Helper = New Helper(Me)
 
             'Calculate the output filename
@@ -474,6 +503,26 @@ Public Class Compiler
             result = Compile_Parse() AndAlso result
             If Report.Errors > 0 Then GoTo ShowErrors
 
+            'Create definitions
+            result = theAss.CreateDefinitions AndAlso result
+            If Report.Errors > 0 Then GoTo ShowErrors
+
+            'Create implicit constructors
+            result = theAss.CreateImplicitInstanceConstructors AndAlso result
+            If Report.Errors > 0 Then GoTo ShowErrors
+
+            'Create implicit constructors
+            result = theAss.CreateDelegateMembers AndAlso result
+            If Report.Errors > 0 Then GoTo ShowErrors
+
+            'Create withevents members
+            result = theAss.CreateWithEventsMembers AndAlso result
+            If Report.Errors > 0 Then GoTo ShowErrors
+
+            'Create regular events members
+            result = theAss.CreateRegularEventMembers AndAlso result
+            If Report.Errors > 0 Then GoTo ShowErrors
+
             m_TypeManager.LoadCompiledTypes()
 
             If String.IsNullOrEmpty(CommandLine.VBRuntime) Then
@@ -490,14 +539,8 @@ Public Class Compiler
 
             'Passed this step no errors should be found...
 
-            result = theAss.DefineTypes AndAlso result
-            VerifyConsistency(result, "DefineTypes")
-
             result = theAss.DefineTypeHierarchy AndAlso result
             VerifyConsistency(result, "DefineTypeHierarchy")
-
-            result = theAss.DefineMembers AndAlso result
-            VerifyConsistency(result, "DefineMembers")
 
             result = theAss.Emit AndAlso result
             VerifyConsistency(result, "Emit")
@@ -513,9 +556,15 @@ Public Class Compiler
 
             Dim writerParameters As New WriterParameters()
             writerParameters.WriteSymbols = EmittingDebugInfo
-            AssemblyBuilderCecil.Write(m_OutFilename, writerParameters)
 
-            Compiler.Report.WriteLine(vbnc.Report.ReportLevels.Debug, String.Format("Assembly '{0}' saved successfully to '{1}'.", AssemblyBuilderCecil.Name.FullName, m_OutFilename))
+            Try
+                AssemblyBuilderCecil.Write(m_OutFilename, writerParameters)
+                Compiler.Report.WriteLine(vbnc.Report.ReportLevels.Debug, String.Format("Assembly '{0}' saved successfully to '{1}'.", AssemblyBuilderCecil.Name.FullName, m_OutFilename))
+            Catch uae As UnauthorizedAccessException
+                Compiler.Report.ShowMessageNoLocation(Messages.VBNC31019, m_OutFilename, uae.Message)
+            Catch dnfe As IO.DirectoryNotFoundException
+                Compiler.Report.ShowMessage(Messages.VBNC2012, Span.CommandLineSpan, m_OutFilename)
+            End Try
 
 ShowErrors:
             VerifyConsistency(result, "ShowErrors")
@@ -715,6 +764,7 @@ EndOfCompilation:
             result.AppendLine("/quiet                 Specifies a quiet mode - only errors will be shown.")
             result.AppendLine("/verbose               Show verbose messages.")
             result.AppendLine("/noconfig              Disable the automatic inclusion of the vbnc.rsp response file.")
+            result.AppendLine("/nostdlib              Do not include the standard libraries (System.dll and vbnc.rsp.)")
             result.AppendLine("")
             result.AppendLine("                       >>> Advanced options >>>")
             result.AppendLine("/baseaddress:<number>  Specifies the base address of the library or module (in hex).")

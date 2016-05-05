@@ -64,7 +64,11 @@ Public Class TypeResolution
                 Conversion(i, j) = New TypeConversionInfo
                 If j = TypeCode.Object OrElse j = i Then
                     Conversion(i, j).Conversion = ConversionType.Implicit
-                ElseIf i = TypeCode.Char Then
+                ElseIf i = TypeCode.Char OrElse j = TypeCode.Char Then
+                    Conversion(i, j).Conversion = ConversionType.None
+                ElseIf i = TypeCode.DateTime OrElse j = TypeCode.DateTime Then
+                    Conversion(i, j).Conversion = ConversionType.None
+                ElseIf i = TypeCode.DBNull OrElse j = TypeCode.DBNull Then
                     Conversion(i, j).Conversion = ConversionType.None
                 Else
                     Conversion(i, j).Conversion = ConversionType.Explicit
@@ -84,7 +88,9 @@ Public Class TypeResolution
         setImplicit(TypeCode.Single, New TypeCode() {TypeCode.Double})
         setImplicit(TypeCode.Double, New TypeCode() {})
         setImplicit(TypeCode.Char, New TypeCode() {TypeCode.String})
+        setImplicit(TypeCode.DBNull, New TypeCode() {TypeCode.String})
 
+        Conversion(TypeCode.DateTime, TypeCode.String).Conversion = ConversionType.Explicit
         Conversion(TypeCode.Byte, TypeCode.Byte).BinaryAddResult = TypeCode.Byte
         Conversion(TypeCode.Boolean, TypeCode.Boolean).BinaryAddResult = TypeCode.SByte
     End Sub
@@ -108,8 +114,6 @@ Public Class TypeResolution
         valCanBeContainBy(getTypeIndex(BuiltInDataTypes.[UInteger])) = New Mono.Cecil.TypeReference() {Compiler.TypeCache.System_UInt32, Compiler.TypeCache.System_Int64, Compiler.TypeCache.System_UInt64, Compiler.TypeCache.System_Decimal, Compiler.TypeCache.System_Double, Compiler.TypeCache.System_Single}
         valCanBeContainBy(getTypeIndex(BuiltInDataTypes.[ULong])) = New Mono.Cecil.TypeReference() {Compiler.TypeCache.System_UInt64, Compiler.TypeCache.System_Decimal, Compiler.TypeCache.System_Double, Compiler.TypeCache.System_Single}
         valCanBeContainBy(getTypeIndex(BuiltInDataTypes.[UShort])) = New Mono.Cecil.TypeReference() {Compiler.TypeCache.System_UInt16, Compiler.TypeCache.System_Int32, Compiler.TypeCache.System_UInt32, Compiler.TypeCache.System_Int64, Compiler.TypeCache.System_UInt64, Compiler.TypeCache.System_Decimal, Compiler.TypeCache.System_Double, Compiler.TypeCache.System_Single}
-
-
 
     End Sub
 
@@ -419,10 +423,6 @@ Public Class TypeResolution
             Return KS.None
         End If
     End Function
-
-    'Function IsImplicitlyConvertible(ByVal Context As BaseObject, ByVal FromType As TypeDescriptor, ByVal ToType As TypeDescriptor) As Boolean
-    '    Return IsImplicitlyConvertible(Context, FromType.TypeInReflection, ToType.TypeInReflection)
-    'End Function
 
     Function IsImplicitlyConvertible(ByVal Context As BaseObject, ByVal FromType As Mono.Cecil.TypeReference, ByVal ToType As Mono.Cecil.TypeReference) As Boolean
         Dim Compiler As Compiler = Context.Compiler

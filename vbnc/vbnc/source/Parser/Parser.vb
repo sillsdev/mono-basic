@@ -484,12 +484,11 @@ Public Class Parser
     '''  Attributes ::=	AttributeBlock  |	Attributes  AttributeBlock
     ''' </summary>
     ''' <remarks></remarks>
-    Private Function ParseAttributes(ByVal Parent As ParsedObject, ByVal Attributes As Attributes) As Boolean
+    Private Function ParseAttributes(ByVal Parent As ParsedObject, ByRef Attributes As Attributes) As Boolean
         Dim result As Boolean = True
 
-        Helper.Assert(Attributes IsNot Nothing)
-
         While AttributeBlock.IsMe(tm)
+            If Attributes Is Nothing Then Attributes = New Attributes(Parent)
             If ParseAttributeBlock(Parent, Attributes) = False Then
                 Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
             End If
@@ -502,10 +501,11 @@ Public Class Parser
     ''' </summary>
     ''' <remarks></remarks>
     Private Function ParseAttributes(ByVal Parent As ParsedObject) As Attributes
-        Dim result As New Attributes(Parent)
+        Dim result As Attributes = Nothing
 
         If Attributes.IsMe(tm) Then
             While AttributeBlock.IsMe(tm)
+                If result Is Nothing Then result = New Attributes(Parent)
                 If ParseAttributeBlock(Parent, result) = False Then
                     Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
                 End If
@@ -524,12 +524,17 @@ Public Class Parser
         Helper.Assert(Attributes IsNot Nothing)
 
         tm.AcceptIfNotInternalError(KS.LT)
+        tm.AcceptNewLine()
 
         If ParseAttributeList(Parent, Attributes) = False Then
             Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
         End If
 
+        tm.AcceptNewLine()
         result = tm.AcceptIfNotError(KS.GT) AndAlso result
+        If Attributes(0).IsAssembly = False AndAlso Attributes(0).IsModule = False Then
+            tm.AcceptNewLine()
+        End If
 
         Return result
     End Function
@@ -641,7 +646,7 @@ Public Class Parser
     ''' Parses lists of type List ::= Item | List "," Item
     ''' </summary>
     ''' <remarks></remarks>
-    Private Function ParseList(Of T As BaseObject)(ByVal List As BaseList(Of T), ByVal ParseMethod As ParseDelegate_Parent(Of T), ByVal Parent As ParsedObject) As Boolean
+    Private Function ParseList(Of T As ParsedObject)(ByVal List As BaseList(Of T), ByVal ParseMethod As ParseDelegate_Parent(Of T), ByVal Parent As ParsedObject) As Boolean
         Helper.Assert(List IsNot Nothing, "List was nothing, tm.CurrentToken=" & tm.CurrentLocation.ToString(Compiler))
         Do
             Dim newObject As T
@@ -671,6 +676,7 @@ Public Class Parser
 
         tm.AcceptIfNotInternalError(KS.Colon)
         tm.AcceptIfNotInternalError(KS.Equals)
+        tm.AcceptNewLine()
 
         m_AttributeArgumentExpression = ParseAttributeArgumentExpression(result)
         If m_AttributeArgumentExpression Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -1301,6 +1307,7 @@ Public Class Parser
         End If
 
         While tm.Accept(KS.Dot)
+            tm.AcceptNewLine()
             If Token.IsSomething(m_Second) Then m_First = New QualifiedIdentifier(Parent, m_First, m_Second)
             If tm.CurrentToken.IsIdentifierOrKeyword Then
                 m_Second = tm.CurrentToken
@@ -1365,8 +1372,8 @@ Public Class Parser
     Private Function ParseInterfaceMembers(ByVal Parent As InterfaceDeclaration) As Boolean
         Dim newMembers As New Generic.List(Of IMember)
         While True
-            Dim attributes As Attributes
-            attributes = New Attributes(Parent)
+            Dim attributes As Attributes = Nothing
+
             If vbnc.Attributes.IsMe(tm) Then
                 If ParseAttributes(Parent, attributes) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
             End If
@@ -1389,7 +1396,7 @@ Public Class Parser
             ElseIf InterfacePropertyMemberDeclaration.IsMe(tm) Then
                 newMember = ParseInterfacePropertyMemberDeclaration(Parent, New ParseAttributableInfo(Compiler, attributes))
             Else
-                If attributes.Count > 0 Then
+                If attributes IsNot Nothing AndAlso attributes.Count > 0 Then
                     Helper.AddError(Compiler, tm.CurrentLocation, "Hanging attributes.")
                 End If
                 Exit While
@@ -1417,8 +1424,8 @@ Public Class Parser
 
         Dim newMembers As New Generic.List(Of IMember)
         While True
-            Dim attributes As Attributes
-            attributes = New Attributes(Parent)
+            Dim attributes As Attributes = Nothing
+
             If vbnc.Attributes.IsMe(tm) Then
                 If ParseAttributes(Parent, attributes) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
             End If
@@ -1484,7 +1491,7 @@ Public Class Parser
                 newMember = ParseConstructorMember(Parent, New ParseAttributableInfo(Compiler, attributes))
                 If newMember Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
             Else
-                If attributes.Count > 0 Then
+                If attributes IsNot Nothing AndAlso attributes.Count > 0 Then
                     Helper.AddError(Compiler, tm.CurrentLocation, "Hanging attributes.")
                 End If
                 Exit While
@@ -1534,8 +1541,8 @@ Public Class Parser
         Dim currentNamespaces As New Generic.List(Of QualifiedIdentifier)
 
         While True
-            Dim attributes As Attributes
-            attributes = New Attributes(Parent)
+            Dim attributes As Attributes = Nothing
+
             If vbnc.Attributes.IsMe(tm) Then
                 If ParseAttributes(Parent, attributes) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
 
@@ -1588,10 +1595,10 @@ Public Class Parser
                         currentNameSpace &= currentNamespaces(currentNamespaces.Count - 1).Name
                     End If
                 Else
-                    Helper.AddError(Compiler, tm.CurrentLocation, "'End Namespace' without 'Namespace'.")
+                    result = Compiler.Report.ShowMessage(Messages.VBNC30623, tm.CurrentLocation)
                 End If
             Else
-                If attributes.Count > 0 Then
+                If attributes IsNot Nothing AndAlso attributes.Count > 0 Then
                     Helper.AddError(Compiler, tm.CurrentLocation, "Hanging attributes.")
                 End If
                 Exit While
@@ -1614,8 +1621,7 @@ Public Class Parser
         Dim m_RaiseEvent As CustomEventHandlerDeclaration = Nothing
 
         Do
-            Dim attributes As Attributes
-            attributes = New Attributes(result)
+            Dim attributes As Attributes = Nothing
             If vbnc.Attributes.IsMe(tm) Then
                 ParseAttributes(result, attributes)
             End If
@@ -1922,7 +1928,7 @@ Public Class Parser
         tm.AcceptIfNotInternalError(KS.Dot)
         'Specifically, this is not a MemberAccessExpression without the
         'dot, so it is an internal error.
-
+        tm.AcceptNewLine()
         m_Second = ParseIdentifierOrKeywordWithTypeArguments(result)
         If m_Second Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
 
@@ -2240,6 +2246,8 @@ Public Class Parser
         m_Identifier = ParseIdentifier(result)
         If m_Identifier Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
 
+        If tm.Accept(KS.Interrogation) Then result.IsNullable = True
+
         If vbnc.ArrayNameModifier.CanBeMe(tm) Then
             m_ArrayNameModifier = ParseArrayNameModifier(result)
             If m_ArrayNameModifier Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -2459,7 +2467,15 @@ Public Class Parser
         Dim iCurrent As RestorablePoint = tm.GetRestorablePoint
         Dim doExpression As Boolean = True
         m_Identifier = ParseIdentifier(result)
-        If m_Identifier Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+        If m_Identifier Is Nothing Then
+            Dim exp As Expression = ParseExpression(result)
+            Dim constant As Object = Nothing
+            If exp IsNot Nothing AndAlso exp.GetConstant(constant, False) Then
+                Compiler.Report.ShowMessage(Messages.VBNC30074, tm.CurrentLocation)
+            Else
+                Compiler.Report.ShowMessage(Messages.VBNC30203, tm.CurrentLocation)
+            End If
+        End If
         If m_Identifier IsNot Nothing Then
             If ArrayNameModifier.CanBeMe(tm) Then
                 tmpANM = ParseArrayNameModifier(result)
@@ -2607,6 +2623,7 @@ Public Class Parser
         tm.NextToken()
         tm.AcceptIfNotInternalError(KS.Colon)
         tm.AcceptIfNotInternalError(KS.Equals)
+        tm.AcceptNewLine()
 
         Expression = ParseExpression(result)
         If Expression Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -2704,6 +2721,7 @@ Public Class Parser
                     Select Case tm.CurrentToken.Symbol
                         Case KS.Equals
                             tm.NextToken()
+                            tm.AcceptNewLine()
                             Dim newStmt As New AssignmentStatement(result)
                             rside = ParseExpression(New ExpressionParseInfo(newStmt, False, False))
                             If rside Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -2711,6 +2729,7 @@ Public Class Parser
                             result.AddStatement(newStmt)
                         Case KS.AddAssign
                             tm.NextToken()
+                            tm.AcceptNewLine()
                             Dim newStmt As New AddAssignStatement(result)
                             rside = ParseExpression(New ExpressionParseInfo(newStmt, False, False))
                             If rside Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -2718,6 +2737,7 @@ Public Class Parser
                             result.AddStatement(newStmt)
                         Case KS.ConcatAssign
                             tm.NextToken()
+                            tm.AcceptNewLine()
                             Dim newStmt As New ConcatAssignStatement(result)
                             rside = ParseExpression(New ExpressionParseInfo(newStmt, False, False))
                             If rside Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -2725,6 +2745,7 @@ Public Class Parser
                             result.AddStatement(newStmt)
                         Case KS.RealDivAssign
                             tm.NextToken()
+                            tm.AcceptNewLine()
                             Dim newStmt As New DivisionAssignStatement(result)
                             rside = ParseExpression(New ExpressionParseInfo(newStmt, False, False))
                             If rside Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -2732,6 +2753,7 @@ Public Class Parser
                             result.AddStatement(newStmt)
                         Case KS.IntDivAssign
                             tm.NextToken()
+                            tm.AcceptNewLine()
                             Dim newStmt As New IntDivisionAssignStatement(result)
                             rside = ParseExpression(New ExpressionParseInfo(newStmt, False, False))
                             If rside Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -2739,6 +2761,7 @@ Public Class Parser
                             result.AddStatement(newStmt)
                         Case KS.MultAssign
                             tm.NextToken()
+                            tm.AcceptNewLine()
                             Dim newStmt As New MultiplicationAssignStatement(result)
                             rside = ParseExpression(New ExpressionParseInfo(newStmt, False, False))
                             If rside Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -2746,6 +2769,7 @@ Public Class Parser
                             result.AddStatement(newStmt)
                         Case KS.PowerAssign
                             tm.NextToken()
+                            tm.AcceptNewLine()
                             Dim newStmt As New PowerAssignStatement(result)
                             rside = ParseExpression(New ExpressionParseInfo(newStmt, False, False))
                             If rside Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -2753,6 +2777,7 @@ Public Class Parser
                             result.AddStatement(newStmt)
                         Case KS.ShiftRightAssign
                             tm.NextToken()
+                            tm.AcceptNewLine()
                             Dim newStmt As New RShiftAssignStatement(result)
                             rside = ParseExpression(New ExpressionParseInfo(newStmt, False, False))
                             If rside Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -2760,6 +2785,7 @@ Public Class Parser
                             result.AddStatement(newStmt)
                         Case KS.ShiftLeftAssign
                             tm.NextToken()
+                            tm.AcceptNewLine()
                             Dim newStmt As New LShiftAssignStatement(result)
                             rside = ParseExpression(New ExpressionParseInfo(newStmt, False, False))
                             If rside Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -2767,6 +2793,7 @@ Public Class Parser
                             result.AddStatement(newStmt)
                         Case KS.MinusAssign
                             tm.NextToken()
+                            tm.AcceptNewLine()
                             Dim newStmt As New SubtractionAssignStatement(result)
                             rside = ParseExpression(New ExpressionParseInfo(newStmt, False, False))
                             If rside Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -3110,10 +3137,7 @@ Public Class Parser
                     value = ParseMemberAccessExpression(Info.Parent, newGlobal)
                 Case KS.If
                     value = ParseIfExpression(Info.Parent)
-                Case Else
-                    Helper.Stop()
             End Select
-            If value Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
         Else
             value = Nothing
         End If
@@ -3149,6 +3173,7 @@ Public Class Parser
         lSide = ParseIdentifier(Info)
 
         While tm.Accept(KS.Power)
+            tm.AcceptNewLine()
             rSide = ParseIdentifier(Info)
             lSide = New ExponentExpression(Info.Parent, lSide, rSide)
         End While
@@ -3179,6 +3204,7 @@ Public Class Parser
             Dim op As KS
             op = tm.CurrentToken.Symbol
             tm.NextToken()
+            tm.AcceptNewLine()
             rSide = ParseUnaryPlusMinus(Info)
             If op = KS.Mult Then
                 lSide = New MultExpression(Info.Parent, lSide, rSide)
@@ -3198,6 +3224,7 @@ Public Class Parser
         lSide = ParseMultDiv(Info)
 
         While tm.Accept(KS.IntDivision)
+            tm.AcceptNewLine()
             rSide = ParseMultDiv(Info)
             lSide = New IntDivisionExpression(Info.Parent, lSide, rSide)
         End While
@@ -3211,6 +3238,7 @@ Public Class Parser
         lSide = ParseIntDiv(Info)
 
         While tm.Accept(KS.Mod)
+            tm.AcceptNewLine()
             rSide = ParseIntDiv(Info)
             lSide = New ModExpression(Info.Parent, lSide, rSide)
         End While
@@ -3227,6 +3255,7 @@ Public Class Parser
             Dim op As KS
             op = tm.CurrentToken.Symbol
             tm.NextToken()
+            tm.AcceptNewLine()
             rSide = ParseMod(Info)
             If op = KS.Add Then
                 lSide = New BinaryAddExpression(Info.Parent, lSide, rSide)
@@ -3247,6 +3276,7 @@ Public Class Parser
         lSide = ParsePlusMinus(Info)
 
         While tm.Accept(KS.Concat)
+            tm.AcceptNewLine()
             rSide = ParsePlusMinus(Info)
             lSide = New ConcatExpression(Info.Parent, lSide, rSide)
         End While
@@ -3263,6 +3293,7 @@ Public Class Parser
             Dim op As KS
             op = tm.CurrentToken.Symbol
             tm.NextToken()
+            tm.AcceptNewLine()
             rSide = ParseConcat(Info)
             If op = KS.ShiftRight Then
                 lSide = New RShiftExpression(Info.Parent, lSide, rSide)
@@ -3293,6 +3324,7 @@ Public Class Parser
             End If
 
             tm.NextToken()
+            tm.AcceptNewLine()
 
             rSide = ParseBitshift(Info)
 
@@ -3341,6 +3373,7 @@ Public Class Parser
             Dim op As KS
             op = tm.CurrentToken.Keyword
             tm.NextToken()
+            tm.AcceptNewLine()
             rSide = ParseNot(Info)
             If op = KS.And Then
                 lSide = New AndExpression(Info.Parent, lSide, rSide)
@@ -3363,6 +3396,7 @@ Public Class Parser
             Dim op As KS
             op = tm.CurrentToken.Keyword
             tm.NextToken()
+            tm.AcceptNewLine()
             rSide = ParseAnd_AndAlso(Info)
             If op = KS.Or Then
                 lSide = New OrExpression(Info.Parent, lSide, rSide)
@@ -3461,6 +3495,7 @@ Public Class Parser
             Compiler.Report.ShowMessage(Messages.VBNC99997, tm.CurrentLocation)
             Return Nothing
         End If
+        tm.AcceptNewLine()
 
         m_Type = ParseTypeName(result)
         If m_Type Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -3518,7 +3553,7 @@ Public Class Parser
         Dim result As New VariableIdentifiers(Parent)
 
         If ParseList(Of VariableIdentifier)(result, New ParseDelegate_Parent(Of VariableIdentifier)(AddressOf ParseVariableIdentifier), Parent) = False Then
-            Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+            tm.GotoNewline(True)
         End If
 
         Return result
@@ -3607,14 +3642,14 @@ Public Class Parser
             m_Attributes = ParseAttributes(result)
             If PropertyGetDeclaration.IsMe(tm) Then
                 If m_Get IsNot Nothing Then
-                    Helper.AddError(Compiler, tm.CurrentLocation, "Found more than one Get Property.")
+                    Compiler.Report.ShowMessage(Messages.VBNC30443, tm.CurrentLocation)
                 End If
                 m_Get = ParsePropertyGetMember(result, New ParseAttributableInfo(Compiler, m_Attributes), m_Signature, m_ImplementsClause, m_Modifiers.Mask)
                 If m_Get Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
                 m_Attributes = Nothing
             ElseIf PropertySetDeclaration.IsMe(tm) Then
                 If m_Set IsNot Nothing Then
-                    Helper.AddError(Compiler, tm.CurrentLocation, "Found more than one Set Property.")
+                    Compiler.Report.ShowMessage(Messages.VBNC30444, tm.CurrentLocation)
                 End If
                 m_Set = ParsePropertySetMember(result, New ParseAttributableInfo(Compiler, m_Attributes), m_Signature, m_ImplementsClause, m_Modifiers.Mask)
                 If m_Set Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -3631,18 +3666,31 @@ Public Class Parser
         If tm.AcceptIfNotError(KS.End, KS.Property) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
         If tm.AcceptEndOfStatement(, True) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
 
-        If m_Modifiers.Is(ModifierMasks.ReadOnly) AndAlso m_Get Is Nothing Then
-            Compiler.Report.ShowMessage(Messages.VBNC30126, m_Signature.Location)
-        End If
-        If m_Modifiers.Is(ModifierMasks.WriteOnly) AndAlso m_Set Is Nothing Then
-            Compiler.Report.ShowMessage(Messages.VBNC30125, m_Signature.Location)
+        If m_Modifiers.Is(ModifierMasks.ReadOnly) Then
+
+            If m_Get Is Nothing Then
+                Compiler.Report.ShowMessage(Messages.VBNC30126, m_Signature.Location)
+            End If
+
+            If m_Set IsNot Nothing Then
+                Compiler.Report.ShowMessage(Messages.VBNC30022, m_Set.Location)
+            End If
+
         End If
 
-        If m_Modifiers.Is(ModifierMasks.ReadOnly) = False AndAlso m_Modifiers.Is(ModifierMasks.WriteOnly) = False Then
-            If m_Get Is Nothing Then
-                Compiler.Report.ShowMessage(Messages.VBNC30124, m_Signature.Location)
-            End If
+        If m_Modifiers.Is(ModifierMasks.WriteOnly) Then
+
             If m_Set Is Nothing Then
+                Compiler.Report.ShowMessage(Messages.VBNC30125, m_Signature.Location)
+            End If
+
+            If m_Get IsNot Nothing Then
+                Compiler.Report.ShowMessage(Messages.VBNC30023, m_Get.Location)
+            End If
+
+        End If
+        If m_Modifiers.Is(ModifierMasks.ReadOnly) = False AndAlso m_Modifiers.Is(ModifierMasks.WriteOnly) = False Then
+            If m_Get Is Nothing OrElse m_Set Is Nothing Then
                 Compiler.Report.ShowMessage(Messages.VBNC30124, m_Signature.Location)
             End If
         End If
@@ -3800,11 +3848,11 @@ Public Class Parser
         Dim m_Identifier As Identifier = Nothing
         Dim m_TypeParameters As TypeParameters = Nothing
         Dim m_ParameterList As New ParameterList(result)
-        Dim m_ReturnTypeAttributes As New Attributes(result)
+        Dim m_ReturnTypeAttributes As Attributes = Nothing
         Dim m_TypeName As TypeName = Nothing
 
         If ParseSubSignature(result, m_Identifier, m_TypeParameters, m_ParameterList) = False Then
-            Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+            tm.GotoNewline(True)
         End If
 
         If tm.Accept(KS.As) Then
@@ -3830,7 +3878,7 @@ Public Class Parser
     ''' <remarks></remarks>
     ''' 
     Private Function ParseTypeParameters(ByVal Parent As ParsedObject) As TypeParameters
-        Dim result As New TypeParameters()
+        Dim result As New TypeParameters(Parent)
 
         If tm.AcceptIfNotError(KS.LParenthesis) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
         If tm.AcceptIfNotError(KS.Of) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -3962,6 +4010,7 @@ Public Class Parser
         End If
 
         If tm.Accept(KS.Equals) Then
+            tm.AcceptNewLine()
             m_ConstantExpression = ParseExpression(result)
             If m_ConstantExpression Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
         Else
@@ -4264,7 +4313,7 @@ Public Class Parser
         Dim m_Operand1 As Operand
         Dim m_Operand2 As Operand
         Dim m_TypeName As TypeName
-        Dim m_ReturnTypeAttributes As New Attributes(Parent)
+        Dim m_ReturnTypeAttributes As Attributes = Nothing
         Dim m_Block As CodeBlock
 
         m_Modifiers = ParseModifiers(ModifierMasks.OperatorModifiers)
@@ -4353,14 +4402,18 @@ Public Class Parser
             If m_HandlesOrImplements Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
         End If
 
-        If tm.AcceptEndOfStatement(, True) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+        If tm.AcceptEndOfStatement(, True) = False Then tm.GotoNewline(True)
 
         If m_Modifiers.Is(ModifierMasks.MustOverride) = False Then
             m_Block = ParseCodeBlock(result, False)
             If m_Block Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
 
-            If tm.AcceptIfNotError(KS.End, KS.Function) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
-            If tm.AcceptEndOfStatement(, True) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+            If tm.AcceptIfNotError(KS.End, KS.Function) = False Then
+                tm.GotoNewline(False)
+            End If
+            If tm.AcceptEndOfStatement(, True) = False Then
+                tm.GotoNewline(True)
+            End If
         End If
 
         result.CustomAttributes = Info.Attributes
@@ -4406,8 +4459,12 @@ Public Class Parser
             m_Block = ParseCodeBlock(result, False)
             If m_Block Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
 
-            If tm.AcceptIfNotError(KS.End, KS.Sub) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
-            If tm.AcceptEndOfStatement(, True) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+            If tm.AcceptIfNotError(KS.End, KS.Sub) = False Then
+                tm.GotoNewline(False)
+            End If
+            If tm.AcceptEndOfStatement(, True) = False Then
+                tm.GotoNewline(True)
+            End If
         End If
 
         result.CustomAttributes = Info.Attributes
@@ -4749,6 +4806,7 @@ Public Class Parser
             If m_TypeName Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
         End If
         If tm.AcceptIfNotError(KS.Equals) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+        tm.AcceptNewLine()
 
         m_ConstantExpression = ParseExpression(result)
         If m_ConstantExpression Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -4788,7 +4846,7 @@ Public Class Parser
 
         result = ParseTypeVariableDeclarators(Parent, m_VariableModifiers, Info)
 
-        If tm.FindNewLineAndShowError() = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+        tm.AcceptNewLine(GotoNewline:=True, ReportError:=True)
 
         Return result
     End Function
@@ -4910,6 +4968,7 @@ Public Class Parser
         End If
 
         If tm.Accept(KS.Equals) Then
+            tm.AcceptNewLine()
             m_VariableInitializer = ParseVariableInitializer(Parent)
             If m_VariableInitializer Is Nothing Then Compiler.Report.ShowMessage(Messages.VBNC30201, tm.CurrentLocation)
             m_ArgumentList = Nothing
@@ -5023,11 +5082,19 @@ Public Class Parser
 
     Private Function ParseResumeStatement(ByVal Parent As ParsedObject) As ResumeStatement
         Dim m_IsResumeNext As Boolean
+        Dim m_TargetLabel As Token? = Nothing
+        Dim m_TargetLocation As Span? = Nothing
 
         tm.AcceptIfNotInternalError(KS.Resume)
-        m_IsResumeNext = tm.Accept(KS.Next)
+        If tm.Accept(KS.Next) Then
+            m_IsResumeNext = True
+        ElseIf tm.CurrentToken.IsIdentifier OrElse tm.CurrentToken.IsIntegerLiteral Then
+            m_TargetLabel = tm.CurrentToken
+            m_TargetLocation = tm.CurrentLocation
+            tm.NextToken()
+        End If
 
-        Return New ResumeStatement(Parent, m_IsResumeNext)
+        Return New ResumeStatement(Parent, m_IsResumeNext, m_TargetLabel, m_TargetLocation)
     End Function
 
     ''' <summary>
@@ -5135,17 +5202,19 @@ Public Class Parser
     ''' <remarks></remarks>
     Private Function ParseExitStatement(ByVal Parent As ParsedObject) As ExitStatement
         Dim m_ExitWhat As KS
+        Dim exitLocation As Span
 
         tm.AcceptIfNotInternalError(KS.Exit)
         If tm.CurrentToken.Equals(KS.Sub, KS.Function, KS.Property, KS.Do, KS.For, KS.Try, KS.While, KS.Select) Then
             m_ExitWhat = tm.CurrentToken.Keyword
+            exitLocation = tm.CurrentLocation
             tm.NextToken()
         Else
             Compiler.Report.ShowMessage(Messages.VBNC30240, tm.CurrentLocation)
             Return Nothing
         End If
 
-        Return New ExitStatement(Parent, m_ExitWhat)
+        Return New ExitStatement(Parent, m_ExitWhat, exitLocation)
     End Function
 
     ''' <summary>
@@ -5912,6 +5981,7 @@ Public Class Parser
         If m_LoopControlVariable Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
 
         If tm.AcceptIfNotError(KS.In) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+        tm.AcceptNewLine()
 
         m_InExpression = ParseExpression(result)
         If m_InExpression Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -5923,7 +5993,7 @@ Public Class Parser
 
         If tm.AcceptIfNotError(KS.Next) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
         If tm.CurrentToken.IsEndOfStatement = False Then
-            m_NextExpression = ParseExpression(result)
+            m_NextExpression = ParseExpression(m_Code)
             If m_NextExpression Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
         Else
             m_NextExpression = Nothing
@@ -5962,6 +6032,7 @@ Public Class Parser
         If m_LoopControlVariable Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
 
         If tm.AcceptIfNotError(KS.Equals) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+        tm.AcceptNewLine()
 
         m_LoopStartExpression = ParseExpression(result)
         If m_LoopStartExpression Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
@@ -6010,18 +6081,21 @@ Public Class Parser
         Dim m_Comparison As KS
 
         If tm.Accept(KS.Is) Then
+            tm.AcceptNewLine()
             If tm.CurrentToken.Equals(CaseClause.RelationalOperators) = False Then
                 Compiler.Report.ShowMessage(Messages.VBNC30239, tm.CurrentLocation)
                 m_Comparison = KS.Equals
             Else
                 m_Comparison = tm.CurrentToken.Symbol
                 tm.NextToken()
+                tm.AcceptNewLine()
             End If
             m_Expression1 = ParseExpression(result)
             If m_Expression1 Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
         ElseIf tm.CurrentToken.Equals(CaseClause.RelationalOperators) Then
             m_Comparison = tm.CurrentToken.Symbol
             tm.NextToken()
+            tm.AcceptNewLine()
             m_Expression1 = ParseExpression(result)
             If m_Expression1 Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
         Else
@@ -6158,7 +6232,6 @@ Public Class Parser
                 result = New StructureDeclaration(Parent, [Namespace], GenericName, m_TypeParameters)
             End If
             result.Modifiers = m_Modifiers
-            result.UpdateDefinition()
         End If
 
         Return result
@@ -6198,7 +6271,10 @@ Public Class Parser
         tm.AcceptIfNotInternalError(KS.Class)
 
         m_Identifier = ParseIdentifier(CType(Nothing, ParsedObject))
-        If m_Identifier Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+        If m_Identifier Is Nothing Then
+            ShowIdentifierExpected(tm.CurrentLocation())
+            Return Nothing
+        End If
 
         If tm.AcceptEndOfStatement = False Then
             m_TypeParameters = ParseTypeParameters(Nothing)
@@ -6242,15 +6318,20 @@ Public Class Parser
 
         If ParseTypeMembers(result) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
 
-        If tm.AcceptIfNotError(KS.End, KS.Class) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
-        If tm.AcceptEndOfStatement(, True) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
-
-        If result.CustomAttributes IsNot Nothing Then
-            result.CustomAttributes.AddRange(Attributes)
-        Else
-            result.CustomAttributes = Attributes
+        If tm.AcceptIfNotError(KS.End, KS.Class) = False Then
+            tm.GotoNewline(False)
         End If
-        result.UpdateDefinition()
+        If tm.AcceptEndOfStatement(, True) = False Then
+            tm.GotoNewline(True)
+        End If
+
+        If Attributes IsNot Nothing Then
+            If result.CustomAttributes IsNot Nothing Then
+                result.CustomAttributes.AddRange(Attributes)
+            Else
+                result.CustomAttributes = Attributes
+            End If
+        End If
 
         Return result
     End Function
@@ -6324,7 +6405,6 @@ Public Class Parser
 
         result.CustomAttributes = Attributes
         result.Modifiers = Modifiers
-        result.UpdateDefinition()
 
         Return result
     End Function
@@ -6341,7 +6421,7 @@ Public Class Parser
         Dim constAttributes As Attributes
 
         Do Until tm.CurrentToken.Equals(KS.End, KS.Enum)
-            constAttributes = New Attributes(Parent)
+            constAttributes = Nothing
             If vbnc.Attributes.IsMe(tm) Then
                 If ParseAttributes(Parent, constAttributes) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
             End If
@@ -6370,31 +6450,79 @@ Public Class Parser
         Dim result As EnumDeclaration
         Dim m_Modifiers As Modifiers
         Dim m_Identifier As Identifier
-        Dim m_QualifiedName As KS = KS.Integer
+        Dim has_error As Boolean
+        Dim location As Span
 
         m_Modifiers = ParseModifiers(ModifierMasks.TypeModifiers)
 
+        location = tm.CurrentLocation
         tm.AcceptIfNotInternalError(KS.Enum)
 
         m_Identifier = ParseIdentifier()
-        If m_Identifier Is Nothing Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+        If m_Identifier Is Nothing Then
+            ShowIdentifierExpected(location)
+            tm.GotoNewline(True)
+            m_Identifier = New Identifier("dummy")
+            has_error = True
+        ElseIf m_Identifier.HasTypeCharacter Then
+            Compiler.Report.ShowMessage(Messages.VBNC30468, location)
+            has_error = True
+        End If
+
+        result = New EnumDeclaration(Parent, [Namespace], m_Identifier)
+        result.Location = location
 
         If tm.Accept(KS.As) Then
-            If tm.CurrentToken.Equals(Enums.IntegralTypeNames) Then
-                m_QualifiedName = tm.CurrentToken.Keyword
+            If tm.CurrentToken.IsKeyword Then
+                Select Case tm.CurrentToken.Keyword
+                    Case KS.Byte
+                        result.EnumConstantType = Compiler.TypeCache.System_Byte
+                    Case KS.SByte
+                        result.EnumConstantType = Compiler.TypeCache.System_SByte
+                    Case KS.Short
+                        result.EnumConstantType = Compiler.TypeCache.System_Int16
+                    Case KS.UShort
+                        result.EnumConstantType = Compiler.TypeCache.System_UInt16
+                    Case KS.Integer
+                        result.EnumConstantType = Compiler.TypeCache.System_Int32
+                    Case KS.UInteger
+                        result.EnumConstantType = Compiler.TypeCache.System_UInt32
+                    Case KS.Long
+                        result.EnumConstantType = Compiler.TypeCache.System_Int64
+                    Case KS.ULong
+                        result.EnumConstantType = Compiler.TypeCache.System_UInt64
+                    Case Else
+                        'Just set anything that will cause the correct error to be shown
+                        result.EnumConstantType = Compiler.TypeCache.System_Object
+                End Select
                 tm.NextToken()
             Else
-                Helper.AddError(Compiler, tm.CurrentLocation, "Enum type must be integral")
+                result.EnumType = ParseNonArrayTypeName(result)
+                If result.EnumType Is Nothing AndAlso has_error = False Then
+                    Compiler.Report.ShowMessage(Messages.VBNC30182, tm.CurrentLocation)
+                    tm.GotoNewline(True)
+                    has_error = True
+                End If
             End If
         End If
-        If tm.AcceptEndOfStatement(, True) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
 
-        result = New EnumDeclaration(Parent, [Namespace], m_Identifier, m_QualifiedName)
+        If tm.AcceptEndOfStatement(, Not has_error) = False AndAlso has_error = False Then
+            tm.GotoNewline(True)
+            has_error = True
+        End If
 
-        If ParseEnumMembers(result) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+        If ParseEnumMembers(result) = False AndAlso has_error = False Then
+            tm.GotoNewline(True)
+            has_error = True
+        End If
 
-        If tm.AcceptIfNotError(KS.End, KS.Enum) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
-        If tm.AcceptEndOfStatement(, True) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+        If Not has_error AndAlso result.Members.Count = 0 Then
+            Compiler.Report.ShowMessage(Messages.VBNC30280, result.Location, result.Name)
+            has_error = True
+        End If
+
+        If tm.AcceptIfNotError(KS.End, KS.Enum) = False Then tm.GotoNewline(True)
+        If tm.AcceptEndOfStatement(, True) = False Then tm.GotoNewline(True)
 
         result.CustomAttributes = Attributes
         result.Modifiers = m_Modifiers
@@ -6453,7 +6581,6 @@ Public Class Parser
 
         result.CustomAttributes = Attributes
         result.Modifiers = m_Modifiers
-        result.UpdateDefinition()
 
         Return result
     End Function
@@ -6484,8 +6611,12 @@ Public Class Parser
 
         If ParseTypeMembers(result) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
 
-        If tm.AcceptIfNotError(KS.End, KS.Module) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
-        If tm.AcceptEndOfStatement(, True) = False Then Helper.ErrorRecoveryNotImplemented(tm.CurrentLocation)
+        If tm.AcceptIfNotError(KS.End, KS.Module) = False Then
+            tm.GotoNewline(False)
+        End If
+        If tm.AcceptEndOfStatement(, True) = False Then
+            tm.GotoNewline(True)
+        End If
 
         If result.CustomAttributes IsNot Nothing Then
             result.CustomAttributes.AddRange(Attributes)
@@ -6493,7 +6624,6 @@ Public Class Parser
             result.CustomAttributes = Attributes
         End If
         result.Modifiers = m_Modifiers
-        result.UpdateDefinition()
 
         Return result
     End Function
@@ -6566,4 +6696,12 @@ Public Class Parser
         Return result
     End Function
 
+    Public Sub ShowIdentifierExpected(ByVal Location As Span)
+        If tm.CurrentToken.IsKeyword Then
+            Compiler.Report.ShowMessage(Messages.VBNC30183, Location)
+        Else
+            Compiler.Report.ShowMessage(Messages.VBNC30203, Location)
+        End If
+    End Sub
 End Class
+

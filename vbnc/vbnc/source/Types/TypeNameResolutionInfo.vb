@@ -366,8 +366,7 @@ Public Class TypeNameResolutionInfo
                 '** exactly one standard module, then the qualified name refers to that type. If R 
                 '** matches the name of types in more than one standard module, a compile-time error occurs.
                 If m_FoundObjects.Count = 0 Then
-                    Return Name.Compiler.Report.ShowMessage(Messages.VBNC99997, Name.Location)
-                    modules = Helper.CreateList(CecilHelper.GetNestedTypes(tp))
+                    Return Name.Compiler.Report.ShowMessage(Messages.VBNC30002, Name.Location, tp.FullName.Replace("/"c, "."c) & "." & R)
                 End If
             Else
                 '**	If resolution of N fails, resolves to a type parameter, or does not resolve to a namespace 
@@ -449,25 +448,18 @@ Public Class TypeNameResolutionInfo
             obj = DirectCast(tp, BaseObject)
 
             'First check if there are nested types with the corresponding name.
-            'Get all the members in the type corresponding to the Name
-            Dim members As Generic.List(Of INameable)
-            members = tp.Members.Declarations.Index.Item(vbnc.Helper.CreateGenericTypename(R, TypeArgumentCount))
-            If members IsNot Nothing Then
-                Dim i As Integer = 0
-                While i <= members.Count - 1
-                    Dim member As INameable = members(i)
-                    'Remove all members that aren't types.
-                    If TypeOf member Is IType = False Then
-                        members.RemoveAt(i)
-                    Else
-                        i += 1
+            Dim nestedName As String = Helper.CreateGenericTypename(R, TypeArgumentCount)
+            Dim nestedType As TypeDefinition = tp.CecilType
+
+            Do
+                For i As Integer = 0 To nestedType.NestedTypes.Count - 1
+                    If Helper.CompareName(nestedType.NestedTypes(i).Name, nestedName) Then
+                        m_FoundObjects.Add(nestedType.NestedTypes(i))
+                        Return True 'There can only be one nested type with the same name
                     End If
-                End While
-                If members.Count > 0 Then
-                    m_FoundObjects.AddRange(members.ToArray)
-                    Return True
-                End If
-            End If
+                Next
+                nestedType = CecilHelper.FindDefinition(nestedType.BaseType)
+            Loop While nestedType IsNot Nothing
 
             'Then check if there are type parameters with the corresponding name
             'in the type (only if the current type is a class or a structure)
@@ -686,7 +678,7 @@ Public Class TypeNameResolutionInfo
         Return False
     End Function
 
-    Private Function CheckImports(ByVal R As String, ByVal [Imports] As ImportsClauses, ByVal TypeArgumentCount As Integer) As Boolean
+    Private Function CheckImports(ByVal R As String, ByVal [Imports] As ImportsClauses, ByVal TypeArgumentCount As Integer, ByRef wasError As Boolean) As Boolean
         '---------------------------------------------------------------------------------------------------------
         '*	If the source file containing the name reference has one or more imports:
         '**	If R matches the name of an accessible type in exactly one import, then the unqualified name refers to 
@@ -708,7 +700,8 @@ Public Class TypeNameResolutionInfo
         '**	If R matches the name of a namespace in exactly one import, then the unqualified name refers to that
         '** namespace. If R matches the name of a namespace in more than one import, a compile-time error occurs.
         '**	If the imports contain one or more accessible standard modules, and R matches the name of an accessible
-        '** nested type in exactly one standard module, then the unqualified name refers to that type. If R matches the        '** name of accessible nested types in more than one standard module, a compile-time error occurs.
+        '** nested type in exactly one standard module, then the unqualified name refers to that type. If R matches the       
+        '** name of accessible nested types in more than one standard module, a compile-time error occurs.
         '---------------------------------------------------------------------------------------------------------
         Dim nsclauses As New Generic.List(Of ImportsNamespaceClause)
         For Each imp As ImportsClause In [Imports]
@@ -741,8 +734,18 @@ Public Class TypeNameResolutionInfo
             m_FoundObjects.Add(tpFound(0))
             Return True
         ElseIf tpFound.Count > 0 Then
-            Helper.AddError(Name)
-            Return False
+            Dim lst As New Generic.List(Of String)
+            For Each found As Object In tpFound
+                Dim m As MemberReference = TryCast(found, MemberReference)
+                If m IsNot Nothing Then
+                    lst.Add(m.DeclaringType.FullName)
+                Else
+                    lst.Add(found.ToString())
+                End If
+            Next
+            lst.Reverse()
+            wasError = True
+            Return FromWhere.Compiler.Report.ShowMessage(Messages.VBNC30561, FromWhere.Location, R, String.Join(", ", lst.ToArray()))
         End If
 
         '**	If R matches the name of a namespace in exactly one import, then the unqualified name refers to that
@@ -765,6 +768,7 @@ Public Class TypeNameResolutionInfo
             m_FoundObjects.Add(tpFound(0))
             Return True
         ElseIf tpFound.Count > 0 Then
+            wasError = True
             Helper.AddError(Name)
             Return False
         End If
@@ -792,6 +796,7 @@ Public Class TypeNameResolutionInfo
     End Function
 
     Private Function ResolveUnqualifiedName(ByVal Rs As String(), ByVal TypeArgumentCount As Integer) As Boolean
+        Dim wasError As Boolean
 
         For Each R As String In Rs
             '---------------------------------------------------------------------------------------------------------
@@ -844,7 +849,11 @@ Public Class TypeNameResolutionInfo
             '** nested type in exactly one standard module, then the unqualified name refers to that type. If R matches 
             '** the name of accessible nested types in more than one standard module, a compile-time error occurs.
             '---------------------------------------------------------------------------------------------------------
-            If CheckImports(R, FromWhere.File.Imports, TypeArgumentCount) Then Return True
+            If CheckImports(R, FromWhere.File.Imports, TypeArgumentCount, wasError) Then
+                Return True
+            ElseIf wasError Then
+                Return False
+            End If
 
             '---------------------------------------------------------------------------------------------------------
             '* If the compilation environment defines one or more import aliases, and R matches the name of one of 
@@ -863,7 +872,11 @@ Public Class TypeNameResolutionInfo
             '** nested type in exactly one standard module, then the unqualified name refers to that type. If R matches the                 
             '** name of accessible nested types in more than one standard module, a compile-time error occurs.
             '---------------------------------------------------------------------------------------------------------
-            If CheckImports(R, FromWhere.Compiler.CommandLine.Imports.Clauses, TypeArgumentCount) Then Return True
+            If CheckImports(R, FromWhere.Compiler.CommandLine.Imports.Clauses, TypeArgumentCount, wasError) Then
+                Return True
+            ElseIf wasError Then
+                Return False
+            End If
         Next
         '---------------------------------------------------------------------------------------------------------
         '* Otherwise, a compile-time error occurs.

@@ -45,7 +45,6 @@ Public Class InvocationOrIndexExpression
     Private m_Expression As Expression
     Private m_ArgumentList As ArgumentList
 
-    Private m_ConstantValue As Object
     Private m_ExpressionType As Mono.Cecil.TypeReference
 
     ' AscW is replaced with the first parameter casted to Integer when:
@@ -84,49 +83,6 @@ Public Class InvocationOrIndexExpression
         m_ArgumentList = ArgumentList
     End Sub
 
-
-    Public Overrides ReadOnly Property IsConstant() As Boolean
-        Get
-            If m_ConstantValue IsNot Nothing Then Return True
-            If m_AscWExpression IsNot Nothing Then
-                If m_AscWExpression.IsConstant Then
-                    m_ConstantValue = Microsoft.VisualBasic.AscW(CChar(m_AscWExpression.ConstantValue))
-                    Return True
-                Else
-                    Return False
-                End If
-            End If
-            If m_ArgumentList.Count <> 1 Then Return False
-            If m_Expression.Classification.IsMethodGroupClassification Then
-                Dim param As Object
-                Dim mgc As MethodGroupClassification = m_Expression.Classification.AsMethodGroupClassification
-                If mgc.IsLateBound Then Return False
-
-                Dim mi As Mono.Cecil.MethodReference = mgc.ResolvedMethodInfo
-
-                If mi Is Nothing Then Return False
-                If Not (m_ArgumentList(0).Expression IsNot Nothing AndAlso m_ArgumentList(0).Expression.IsConstant) Then Return False
-
-                param = m_ArgumentList(0).Expression.ConstantValue
-                If Compiler.NameResolver.IsConstantMethod(mi, param, m_ConstantValue) = False Then Return False
-
-                Return True
-            Else
-                Return False
-            End If
-        End Get
-    End Property
-
-    Public Overrides ReadOnly Property ConstantValue() As Object
-        Get
-            If Me.IsConstant Then 'Necessary, since the property loads the constant value if it is a constant.
-                Return m_ConstantValue
-            Else
-                Throw New InternalException(Me)
-            End If
-        End Get
-    End Property
-
     ReadOnly Property Expression() As Expression
         Get
             Return m_Expression
@@ -145,7 +101,7 @@ Public Class InvocationOrIndexExpression
 
         If m_AscWExpression IsNot Nothing Then
             result = m_AscWExpression.GenerateCode(Info.Clone(Me, True, False, Compiler.TypeCache.System_Char)) AndAlso result
-         
+
             Return result
         End If
 
@@ -330,6 +286,36 @@ Public Class InvocationOrIndexExpression
         Return result
     End Function
 
+    Public Overrides Function GetConstant(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        'Check for constant expression
+        If m_AscWExpression IsNot Nothing Then
+            If m_AscWExpression.GetConstant(result, False) Then
+                result = Microsoft.VisualBasic.AscW(CChar(result))
+                Return True
+            End If
+        ElseIf m_ArgumentList.Count = 1 AndAlso m_Expression.Classification.IsMethodGroupClassification Then
+            Dim param As Object = Nothing
+            Dim mgc As MethodGroupClassification = m_Expression.Classification.AsMethodGroupClassification
+
+            If mgc.IsLateBound = False Then
+                Dim mi As Mono.Cecil.MethodReference = mgc.ResolvedMethodInfo
+                If mi IsNot Nothing Then
+                    If m_ArgumentList(0).Expression IsNot Nothing Then
+                        If m_ArgumentList(0).Expression.GetConstant(param, False) Then
+                            If Compiler.NameResolver.IsConstantMethod(mi, param, param) Then
+                                result = param
+                                Return True
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+        End If
+
+        If ShowError Then Show30059()
+        Return False
+    End Function
+
     Private Function ResolveIndexInvocation(ByVal Context As ParsedObject, ByVal VariableType As Mono.Cecil.TypeReference) As Boolean
         Dim result As Boolean = True
         Dim Compiler As Compiler = Context.Compiler
@@ -339,7 +325,7 @@ Public Class InvocationOrIndexExpression
         If CecilHelper.IsArray(VariableType) Then
             result = ResolveArrayInvocation(Context, VariableType) AndAlso result
         ElseIf Helper.CompareType(VariableType, Compiler.TypeCache.System_Array) Then
-            result = ResolveLateboundArrayInvocation(Context) AndAlso result
+            result = ResolveLateBoundArrayInvocation(Context) AndAlso result
         ElseIf Helper.IsDelegate(Compiler, VariableType) Then
             'This is an invocation expression (the classification can be reclassified as value and the expression is a delegate expression)
             result = ResolveDelegateInvocation(Context, VariableType)
@@ -347,7 +333,7 @@ Public Class InvocationOrIndexExpression
             Dim propGroup As New PropertyGroupClassification(Me, m_Expression, defaultProperties)
             result = propGroup.ResolveGroup(m_ArgumentList)
             If result Then
-                m_ArgumentList.ReplaceAndVerifyArguments(propGroup.FinalArguments, propGroup.ResolvedProperty)
+                m_ArgumentList.ReplaceAndVerifyArguments(propGroup.FinalArguments, propGroup.ResolvedProperty, True)
             End If
             Classification = New PropertyAccessClassification(propGroup)
             'Classification = propGroup
@@ -382,8 +368,13 @@ Public Class InvocationOrIndexExpression
             Return False
         End If
 
-        If CecilHelper.GetArrayRank(ArrayType) <> m_ArgumentList.Count Then
-            Helper.AddError(Me, "Array dimensions are not correct.")
+        Dim arrayRank As Integer = CecilHelper.GetArrayRank(ArrayType)
+
+        If m_ArgumentList.Count > arrayRank Then
+            Compiler.Report.ShowMessage(Messages.VBNC30106, Location)
+            Return False
+        ElseIf m_ArgumentList.Count < arrayRank Then
+            Compiler.Report.ShowMessage(Messages.VBNC30105, Location)
             Return False
         End If
 
@@ -468,7 +459,7 @@ Public Class InvocationOrIndexExpression
 
             Return tmpResult
         Else
-            result = m_ArgumentList.ReplaceAndVerifyArguments(propGroup.FinalArguments, propGroup.ResolvedProperty) AndAlso result
+            result = m_ArgumentList.ReplaceAndVerifyArguments(propGroup.FinalArguments, propGroup.ResolvedProperty, True) AndAlso result
         End If
 
         Classification = New PropertyAccessClassification(propGroup)
@@ -522,11 +513,7 @@ Public Class InvocationOrIndexExpression
         Else
             result = mgc.ResolveGroup(m_ArgumentList)
             If result Then
-                If mgc.IsLateBound = False Then
-                    m_ArgumentList.ReplaceAndVerifyArguments(mgc.FinalArguments, mgc.ResolvedMethod)
-                End If
-                result = mgc.VerifyConstraints AndAlso result
-                If result = False Then Return False
+                If Not mgc.VerifyGroup(m_ArgumentList, True) Then Return False
             Else
                 mgc.ResolveGroup(m_ArgumentList, True)
                 Return False
@@ -561,6 +548,8 @@ Public Class InvocationOrIndexExpression
                     Dim exp As Expression = Nothing
                     result = mae.FirstExpression.Classification.AsTypeClassification.CreateAliasExpression(mae.FirstExpression, exp) AndAlso result
                     mgc.InstanceExpression = exp
+                Else
+                    result = Report.ShowMessage(Messages.VBNC30469, Me.Location)
                 End If
             End If
 
@@ -589,3 +578,4 @@ Public Class InvocationOrIndexExpression
         End Get
     End Property
 End Class
+

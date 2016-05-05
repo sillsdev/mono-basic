@@ -33,11 +33,6 @@ Public Class BuiltInTypeName
         m_TypeName = Typename
     End Sub
 
-    Function Clone(Optional ByVal NewParent As ParsedObject = Nothing) As BuiltInTypeName
-        If NewParent Is Nothing Then NewParent = Me.Parent
-        Return New BuiltInTypeName(NewParent, m_TypeName)
-    End Function
-
     ReadOnly Property ResolvedType() As Mono.Cecil.TypeReference
         Get
             Return Compiler.TypeResolution.KeywordToType(m_TypeName)
@@ -71,5 +66,4 @@ Public Class BuiltInTypeName
     Shared Function IsBuiltInTypeName(ByVal tm As tm) As Boolean
         Return tm.CurrentToken.Equals(Enums.BuiltInTypeTypeNames)
     End Function
-
 End Class

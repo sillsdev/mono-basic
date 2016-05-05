@@ -4,14 +4,13 @@ SUBDIRS := symbols
 include ../../build/rules.make
 
 LIBRARY = Mono.Cecil.VB.dll
-LIBRARY_COMPILE = $(DMCS) -keyfile:$(topdir)/$(thisdir)/mono.snk -d:CECIL -debug
+LIBRARY_COMPILE = mcs -keyfile:$(topdir)/$(thisdir)/mono.snk -d:CECIL -debug
 #LIBRARY_SNK = $(topdir)/$(thisdir)/mono.snk
 
 include ../../build/library.make
 
 DISTFILES = \
 	$(wildcard *.csproj)	\
-	NOTES.txt	\
 	mono.snk	\
 	Mono.Cecil.VB.dll.sources
 

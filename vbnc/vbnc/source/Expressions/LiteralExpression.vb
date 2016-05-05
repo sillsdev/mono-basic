@@ -52,6 +52,10 @@ Public Class LiteralExpression
         m_Value = Value
     End Sub
 
+    Shadows Sub Init(ByVal Value As Object, ByVal ExpressionType As TypeReference)
+        MyBase.Init(Value, ExpressionType)
+    End Sub
+
     Protected Overrides Function GenerateCodeInternal(ByVal Info As EmitInfo) As Boolean
         Dim result As Boolean = True
 
@@ -78,15 +82,11 @@ Public Class LiteralExpression
     End Function
 
     Protected Overrides Function ResolveExpressionInternal(ByVal Info As ResolveInfo) As Boolean
-        Helper.Assert(ConstantValue IsNot Nothing)
-        Classification = New ValueClassification(Me, ExpressionType, ConstantValue)
-        Return True
-    End Function
+        Dim constant As Object = Nothing
 
-    Public Overrides Function Clone(Optional ByVal NewParent As ParsedObject = Nothing) As Expression
-        If NewParent IsNot Nothing Then NewParent = Me.Parent
-        Dim result As New LiteralExpression(NewParent)
-        result.Init(m_Value)
-        Return result
+        If Not GetConstant(constant, True) Then Return False
+
+        Classification = New ValueClassification(Me, ExpressionType, constant)
+        Return True
     End Function
 End Class

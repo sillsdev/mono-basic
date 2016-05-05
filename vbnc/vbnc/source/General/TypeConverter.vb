@@ -42,8 +42,8 @@ Public Class TypeConverter
     Public Shared LikeDefinedTypes As String = "S"
     Public Shared LikeResultType As String = "" & _
             "XXXXXXXXXXXXXXXXX-X" & _
-            "XBXBBBBBBBBBBBBBB-B" & _
-            "XXXXXXXXXXXXXXXXX-X" & _
+            "XBBBBBBBBBBBBBBBB-B" & _
+            "XBXXXXXXXXXXXXXXX-X" & _
             "XBXDDDDDDDDDDDDDD-D" & _
             "XBXDDDDDDDDDDDDDD-D" & _
             "XBXDDDDDDDDDDDDDD-D" & _
@@ -62,8 +62,8 @@ Public Class TypeConverter
             "XBXDDDDDDDDDDDDDD-D"
     Public Shared LikeOperandType As String = "" & _
                 "XXXXXXXXXXXXXXXXX-X" & _
-                "XBXBBBBBBBBBBBBBB-B" & _
-                "XXXXXXXXXXXXXXXXX-X" & _
+                "XBBBBBBBBBBBBBBBB-B" & _
+                "XBXXXXXXXXXXXXXXX-X" & _
                 "XBXSSSSSSSSSSSSSS-S" & _
                 "XBXSSSSSSSSSSSSSS-S" & _
                 "XBXSSSSSSSSSSSSSS-S" & _
@@ -89,7 +89,7 @@ Public Class TypeConverter
             "XXXXXXXXXXXXXXXXX-X" & _
             "XBXBXBBBBBBBBBBBX-B" & _
             "XXXXXXXXXXXXXXXXX-X" & _
-            "XBXFXFHHJJLLPNOPX-O" & _
+            "XBXHXFHHJJLLPNOPX-O" & _
             "XXXXXXXXXXXXXXXXX-X" & _
             "XBXFXFHHJJLLPNOPX-O" & _
             "XBXHXHGHIJKLMNOPX-O" & _
@@ -99,9 +99,9 @@ Public Class TypeConverter
             "XBXLXLKLKLKLMNOPX-O" & _
             "XBXLXLLLLLLLPNOPX-O" & _
             "XBXPXPMPMPMPMNOPX-O" & _
-            "XBXNXNNNNNNNNNOPX-O" & _
+            "XBXNXNNNNNNNNNONX-O" & _
             "XBXOXOOOOOOOOOOOX-O" & _
-            "XBXPXPPPPPPPPPOPX-O" & _
+            "XBXPXPPPPPPPPNOPX-O" & _
             "XXXXXXXXXXXXXXXXX-X" & _
             "-------------------" & _
             "XBXOXOOOOOOOOOOOX-O"
@@ -111,11 +111,11 @@ Public Class TypeConverter
             "XXXXXXXXXXXXXXXXX-X" & _
             "XBXBXBBBBBBBBBBBX-B" & _
             "XXXXXXXXXXXXXXXXX-X" & _
-            "XBXFXHHJJJLLLLLLX-L" & _
+            "XBXHXFHHJJLLLLLLX-L" & _
             "XXXXXXXXXXXXXXXXX-X" & _
-            "XBXHXGHJJJLLLLLLX-L" & _
-            "XBXHXHHIIJKLMLLLX-L" & _
-            "XBXJXJIIJJLLLLLLX-L" & _
+            "XBXFXFHHJJLLLLLLX-L" & _
+            "XBXHXHGHIJKLMLLLX-L" & _
+            "XBXHXHHHJJLLLLLLX-L" & _
             "XBXJXJIJIJKLMLLLX-L" & _
             "XBXJXJJJJJLLLLLLX-L" & _
             "XBXLXLKLKLKLMLLLX-L" & _
@@ -133,19 +133,19 @@ Public Class TypeConverter
             "XXXXXXXXXXXXXXXXX-X" & _
             "XBXBXBBBBBBBBBBBX-B" & _
             "XXXXXXXXXXXXXXXXX-X" & _
-            "XBXOXOOOOOOOONOOX-O" & _
+            "XBXOXOOOOOOOONOPX-O" & _
             "XXXXXXXXXXXXXXXXX-X" & _
-            "XBXOXOOOOOOOONOOX-O" & _
-            "XBXOXOOOOOOOONOOX-O" & _
-            "XBXOXOOOOOOOONOOX-O" & _
-            "XBXOXOOOOOOOONOOX-O" & _
-            "XBXOXOOOOOOOONOOX-O" & _
-            "XBXOXOOOOOOOONOOX-O" & _
-            "XBXOXOOOOOOOONOOX-O" & _
-            "XBXOXOOOOOOOONOOX-O" & _
-            "XBXNXNNNNNNNNNOOX-O" & _
+            "XBXOXOOOOOOOONOPX-O" & _
+            "XBXOXOOOOOOOONOPX-O" & _
+            "XBXOXOOOOOOOONOPX-O" & _
+            "XBXOXOOOOOOOONOPX-O" & _
+            "XBXOXOOOOOOOONOPX-O" & _
+            "XBXOXOOOOOOOONOPX-O" & _
+            "XBXOXOOOOOOOONOPX-O" & _
+            "XBXOXOOOOOOOONOPX-O" & _
+            "XBXNXNNNNNNNNNONX-O" & _
             "XBXOXOOOOOOOOOOOX-O" & _
-            "XBXOXOOOOOOOOOOOX-O" & _
+            "XBXPXPPPPPPPPNOPX-O" & _
             "XXXXXXXXXXXXXXXXX-X" & _
             "-------------------" & _
             "XBXOXOOOOOOOOOOOX-O"
@@ -153,9 +153,9 @@ Public Class TypeConverter
 
     Public Shared AddResultType As String = "" & _
             "XXXXXXXXXXXXXXXXX-X" & _
-            "XBXBBBBBBBBBBBBBB-B" & _
-            "XXXXXXXXXXXXXXXXX-X" & _
-            "XBXFXFHHJJLLPNOPX-O" & _
+            "XBBBBBBBBBBBBBBBB-B" & _
+            "XBXXXXXXXXXXXXXXX-X" & _
+            "XBXHXFHHJJLLPNOPX-O" & _
             "XBXXSXXXXXXXXXXXX-S" & _
             "XBXFXFHHJJLLPNOPX-O" & _
             "XBXHXHGHIJKLMNOPX-O" & _
@@ -165,10 +165,10 @@ Public Class TypeConverter
             "XBXLXLKLKLKLMNOPX-O" & _
             "XBXLXLLLLLLLPNOPX-O" & _
             "XBXPXPMPMPMPMNOPX-O" & _
-            "XBXNXNNNNNNNNNOPX-O" & _
+            "XBXNXNNNNNNNNNONX-O" & _
             "XBXOXOOOOOOOOOOOX-O" & _
-            "XBXPXPPPPPPPPPOPX-O" & _
-            "XBXXXXXXXXXXXXXXX-S" & _
+            "XBXPXPPPPPPPPNOPX-O" & _
+            "XBXXXXXXXXXXXXXXS-S" & _
             "-------------------" & _
             "XBXOSOOOOOOOOOOOS-S"
     Public Shared AddDefinedTypes As String = "FGHIJKLMNOPS"
@@ -177,7 +177,7 @@ Public Class TypeConverter
             "XXXXXXXXXXXXXXXXX-X" & _
             "XBXBXBBBBBBBBBBBX-B" & _
             "XXXXXXXXXXXXXXXXX-X" & _
-            "XBXFXFHHJJLLPNOPX-O" & _
+            "XBXHXFHHJJLLPNOPX-O" & _
             "XXXXXXXXXXXXXXXXX-X" & _
             "XBXFXFHHJJLLPNOPX-O" & _
             "XBXHXHGHIJKLMNOPX-O" & _
@@ -187,9 +187,9 @@ Public Class TypeConverter
             "XBXLXLKLKLKLMNOPX-O" & _
             "XBXLXLLLLLLLPNOPX-O" & _
             "XBXPXPMPMPMPMNOPX-O" & _
-            "XBXNXNNNNNNNNNOPX-O" & _
+            "XBXNXNNNNNNNNNONX-O" & _
             "XBXOXOOOOOOOOOOOX-O" & _
-            "XBXPXPPPPPPPPPOPX-O" & _
+            "XBXPXPPPPPPPPNOPX-O" & _
             "XXXXXXXXXXXXXXXXX-X" & _
             "-------------------" & _
             "XBXOXOOOOOOOOOOOX-O"
@@ -244,21 +244,21 @@ Public Class TypeConverter
 
     Public Shared RelationalOperandTypes As String = _
             "XXXXXXXXXXXXXXXXX-X" & _
-            "XBXBBBBBBBBBBBBBB-B" & _
-            "XXXXXXXXXXXXXXXXX-X" & _
-            "XBXDXFHHJJPLPNOPX-D" & _
+            "XBBBBBBBBBBBBBBBB-B" & _
+            "XBXXXXXXXXXXXXXXX-X" & _
+            "XBXDXFHHJJLLPNOPX-D" & _
             "XBXXEXXXXXXXXXXXX-S" & _
             "XBXFXFHHJJPLPNOPX-O" & _
             "XBXHXHGHIJKLMNOPX-O" & _
             "XBXHXHHHJJPLPNOPX-O" & _
-            "XBXIXJIJIJKLMNOPX-O" & _
+            "XBXJXJIJIJKLMNOPX-O" & _
             "XBXJXJJJJJPLPNOPX-O" & _
-            "XBXPXPKPKPKLMNOPX-O" & _
+            "XBXLXPKPKPKLMNOPX-O" & _
             "XBXLXLLLLLLLPNOPX-O" & _
             "XBXPXPMPMPMPMNOPX-O" & _
-            "XBXNXNNNNNNNNNOPX-O" & _
-            "XBXOXOOOOOOOOOOPX-O" & _
-            "XBXPXPPPPPPPPPPPX-O" & _
+            "XBXNXNNNNNNNNNONX-O" & _
+            "XBXOXOOOOOOOOOOOX-O" & _
+            "XBXPXPPPPPPPPNOPX-O" & _
             "XBXXXXXXXXXXXXXXQ-Q" & _
             "-------------------" & _
             "XBXDSOOOOOOOOOOOQ-S"
@@ -288,35 +288,32 @@ Public Class TypeConverter
     Public Shared ExponentDefinedTypes As String = "O"
 
     Public Shared NotOperatorResultType As String = "XBXDXFGHIJKLMLLLX-L"
-    Public Shared NotDefinedTypes As String = "DFGHIJKLM"
 
-    Public Shared UnaryPlusResultType As String = "XBXFXFGHIJKLMNOPX-O"
-    Public Shared UnaryPlusDefinedTypes As String = "FGHIJKLMNOP"
+    Public Shared UnaryPlusResultType As String = "XBXHXFGHIJKLMNOPX-O"
 
-    Public Shared UnaryMinusResultType As String = "XBXFXFHHJJLLPNOPX-O"
-    Public Shared UnaryMinusDefinedTypes As String = "FHJLNOP"
+    Public Shared UnaryMinusResultType As String = "XBXHXFHHJJLLPNOPX-O"
 
     Public Shared ShiftDefinedTypes As String = "FGHIJKLM"
     Public Shared ShiftResultType As String = _
- "XXXXXXXXXXXXXXXXX-X" & _
- "XBXFXFGHIJKLMLLLX-L" & _
- "XXXXXXXXXXXXXXXXX-X" & _
- "XBXFXFGHIJKLMLLLX-L" & _
- "XXXXXXXXXXXXXXXXX-X" & _
- "XBXFXFGHIJKLMLLLX-L" & _
- "XBXFXFGHIJKLMLLLX-L" & _
- "XBXFXFGHIJKLMLLLX-L" & _
- "XBXFXFGHIJKLMLLLX-L" & _
- "XBXFXFGHIJKLMLLLX-L" & _
- "XBXFXFGHIJKLMLLLX-L" & _
- "XBXFXFGHIJKLMLLLX-L" & _
- "XBXFXFGHIJKLMLLLX-L" & _
- "XBXFXFGHIJKLMLLLX-L" & _
- "XBXFXFGHIJKLMLLLX-L" & _
- "XBXFXFGHIJKLMLLLX-L" & _
- "XXXXXXXXXXXXXXXXX-X" & _
- "-------------------" & _
- "XBXFXFGHIJKLMLLLX-L"
+             "XXXXXXXXXXXXXXXXX-X" & _
+             "XBBBXBBBBBBBBBBBX-B" & _
+             "XBXXXXXXXXXXXXXXX-X" & _
+             "XBXHXFGHIJKLMLLLX-L" & _
+             "XBXXXXXXXXXXXXXXX-X" & _
+             "XBXHXFGHIJKLMLLLX-L" & _
+             "XBXHXFGHIJKLMLLLX-L" & _
+             "XBXHXFGHIJKLMLLLX-L" & _
+             "XBXHXFGHIJKLMLLLX-L" & _
+             "XBXHXFGHIJKLMLLLX-L" & _
+             "XBXHXFGHIJKLMLLLX-L" & _
+             "XBXHXFGHIJKLMLLLX-L" & _
+             "XBXHXFGHIJKLMLLLX-L" & _
+             "XBXHXFGHIJKLMLLLX-L" & _
+             "XBXHXFGHIJKLMLLLX-L" & _
+             "XBXHXFGHIJKLMLLLX-L" & _
+             "XBXXXXXXXXXXXXXXX-X" & _
+             "-------------------" & _
+             "XBXHXFGHIJKLMLLLX-L"
 
 
     ''' <summary>
@@ -465,32 +462,38 @@ Public Class TypeConverter
     End Function
 
     Shared Function GetEqualsResultType(ByVal op1 As TypeCode, ByVal op2 As TypeCode) As TypeCode
-        If GetEqualsOperandType(op1, op2) = TypeCode.Empty Then Return TypeCode.Empty
+        Dim tp As TypeCode = GetEqualsOperandType(op1, op2)
+        If tp = TypeCode.Empty OrElse tp = TypeCode.Object Then Return tp
         Return TypeCode.Boolean
     End Function
 
     Shared Function GetLTResultType(ByVal op1 As TypeCode, ByVal op2 As TypeCode) As TypeCode
-        If GetLTOperandType(op1, op2) = TypeCode.Empty Then Return TypeCode.Empty
+        Dim tp As TypeCode = GetLTOperandType(op1, op2)
+        If tp = TypeCode.Empty OrElse tp = TypeCode.Object Then Return tp
         Return TypeCode.Boolean
     End Function
 
     Shared Function GetGTResultType(ByVal op1 As TypeCode, ByVal op2 As TypeCode) As TypeCode
-        If GetGTOperandType(op1, op2) = TypeCode.Empty Then Return TypeCode.Empty
+        Dim tp As TypeCode = GetGTOperandType(op1, op2)
+        If tp = TypeCode.Empty OrElse tp = TypeCode.Object Then Return tp
         Return TypeCode.Boolean
     End Function
 
     Shared Function GetLEResultType(ByVal op1 As TypeCode, ByVal op2 As TypeCode) As TypeCode
-        If GetLEOperandType(op1, op2) = TypeCode.Empty Then Return TypeCode.Empty
+        Dim tp As TypeCode = GetLEOperandType(op1, op2)
+        If tp = TypeCode.Empty OrElse tp = TypeCode.Object Then Return tp
         Return TypeCode.Boolean
     End Function
 
     Shared Function GetGEResultType(ByVal op1 As TypeCode, ByVal op2 As TypeCode) As TypeCode
-        If GetGEOperandType(op1, op2) = TypeCode.Empty Then Return TypeCode.Empty
+        Dim tp As TypeCode = GetGEOperandType(op1, op2)
+        If tp = TypeCode.Empty OrElse tp = TypeCode.Object Then Return tp
         Return TypeCode.Boolean
     End Function
 
     Shared Function GetNotEqualsResultType(ByVal op1 As TypeCode, ByVal op2 As TypeCode) As TypeCode
-        If GetNotEqualsOperandType(op1, op2) = TypeCode.Empty Then Return TypeCode.Empty
+        Dim tp As TypeCode = GetNotEqualsOperandType(op1, op2)
+        If tp = TypeCode.Empty OrElse tp = TypeCode.Object Then Return tp
         Return TypeCode.Boolean
     End Function
 
@@ -813,7 +816,7 @@ Public Class TypeConverter
     ''' <param name="Destination"></param>
     ''' <returns></returns>
     ''' <remarks></remarks>
-    Public Shared Function ConvertTo(ByVal Context As ParsedObject, ByVal Source As Object, ByVal Destination As Mono.Cecil.TypeReference, ByRef result As Object) As Boolean
+    Public Shared Function ConvertTo(ByVal Context As ParsedObject, ByVal Source As Object, ByVal Destination As Mono.Cecil.TypeReference, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         If Destination Is Nothing OrElse Source Is Nothing Then
             result = Source
             Return True
@@ -838,35 +841,35 @@ Public Class TypeConverter
 
         Select Case dtc
             Case TypeCode.Boolean
-                Return ConvertToBoolean(Context, Source, stc, result)
+                Return ConvertToBoolean(Context, Source, stc, result, ShowErrors)
             Case TypeCode.Byte
-                Return ConvertToByte(Context, Source, stc, result)
+                Return ConvertToByte(Context, Source, stc, result, ShowErrors)
             Case TypeCode.Char
-                Return ConvertToChar(Context, Source, stc, result)
+                Return ConvertToChar(Context, Source, stc, result, ShowErrors)
             Case TypeCode.DateTime
-                Return ConvertToDateTime(Context, Source, stc, result)
+                Return ConvertToDateTime(Context, Source, stc, result, ShowErrors)
             Case TypeCode.Decimal
-                Return ConvertToDecimal(Context, Source, stc, result)
+                Return ConvertToDecimal(Context, Source, stc, result, ShowErrors)
             Case TypeCode.Double
-                Return ConvertToDouble(Context, Source, stc, result)
+                Return ConvertToDouble(Context, Source, stc, result, ShowErrors)
             Case TypeCode.Int16
-                Return ConvertToInt16(Context, Source, stc, result)
+                Return ConvertToInt16(Context, Source, stc, result, ShowErrors)
             Case TypeCode.Int32
-                Return ConvertToInt32(Context, Source, stc, result)
+                Return ConvertToInt32(Context, Source, stc, result, ShowErrors)
             Case TypeCode.Int64
-                Return ConvertToInt64(Context, Source, stc, result)
+                Return ConvertToInt64(Context, Source, stc, result, ShowErrors)
             Case TypeCode.SByte
-                Return ConvertToSByte(Context, Source, stc, result)
+                Return ConvertToSByte(Context, Source, stc, result, ShowErrors)
             Case TypeCode.Single
-                Return ConvertToSingle(Context, Source, stc, result)
+                Return ConvertToSingle(Context, Source, stc, result, ShowErrors)
             Case TypeCode.String
-                Return ConvertToString(Context, Source, stc, result)
+                Return ConvertToString(Context, Source, stc, result, ShowErrors)
             Case TypeCode.UInt16
-                Return ConvertToUInt16(Context, Source, stc, result)
+                Return ConvertToUInt16(Context, Source, stc, result, ShowErrors)
             Case TypeCode.UInt32
-                Return ConvertToUInt32(Context, Source, stc, result)
+                Return ConvertToUInt32(Context, Source, stc, result, ShowErrors)
             Case TypeCode.UInt64
-                Return ConvertToUInt64(Context, Source, stc, result)
+                Return ConvertToUInt64(Context, Source, stc, result, ShowErrors)
             Case TypeCode.Object
                 result = Source
                 Return True
@@ -876,7 +879,7 @@ Public Class TypeConverter
         End Select
     End Function
 
-    Public Shared Function ConvertToBoolean(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToBoolean(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Select Case SourceTypeCode
             Case TypeCode.Boolean
                 result = Source
@@ -885,8 +888,10 @@ Public Class TypeConverter
                 result = CBool(DirectCast(Source, Byte))
                 Return True
             Case TypeCode.Char
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Char", "Boolean")
             Case TypeCode.DateTime
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Date", "Boolean")
             Case TypeCode.Decimal
                 result = CBool(DirectCast(Source, Decimal))
@@ -910,6 +915,7 @@ Public Class TypeConverter
                 result = CBool(DirectCast(Source, Single))
                 Return True
             Case TypeCode.String
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "Byte", "String")
             Case TypeCode.UInt16
                 result = CBool(DirectCast(Source, UShort))
@@ -924,10 +930,11 @@ Public Class TypeConverter
                 result = CBool(Nothing)
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, "Boolean")
     End Function
 
-    Public Shared Function ConvertToByte(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToByte(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Select Case SourceTypeCode
             Case TypeCode.Boolean
                 Dim i As Boolean = DirectCast(Source, Boolean)
@@ -937,8 +944,10 @@ Public Class TypeConverter
                 result = Source
                 Return True
             Case TypeCode.Char
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32006, Context.Location, "Byte")
             Case TypeCode.DateTime
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Date", "Byte")
             Case TypeCode.Decimal
                 Dim i As Decimal = DirectCast(Source, Decimal)
@@ -983,6 +992,7 @@ Public Class TypeConverter
                     Return True
                 End If
             Case TypeCode.String
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "Byte", "String")
             Case TypeCode.UInt16
                 Dim i As UShort = DirectCast(Source, UShort)
@@ -1006,35 +1016,47 @@ Public Class TypeConverter
                 result = CByte(0)
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, "Byte")
     End Function
 
-    Public Shared Function ConvertToChar(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToChar(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Select Case SourceTypeCode
             Case TypeCode.Boolean
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Boolean", "Char")
             Case TypeCode.Byte
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32007, Context.Location, "Byte")
             Case TypeCode.Char
                 result = Source
                 Return True
             Case TypeCode.DateTime
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "DateTime", "Char")
             Case TypeCode.Decimal
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Decimal", "Char")
             Case TypeCode.Double
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Double", "Char")
             Case TypeCode.Int16
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32007, Context.Location, "Short")
             Case TypeCode.Int32
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32007, Context.Location, "Integer")
             Case TypeCode.Int64
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32007, Context.Location, "Long")
             Case TypeCode.SByte
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32007, Context.Location, "SByte")
             Case TypeCode.Single
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Single", "Char")
             Case TypeCode.String
+                If ShowErrors = False Then Return False
                 Dim str As String = DirectCast(Source, String)
                 If str.Length >= 1 Then
                     result = str(0)
@@ -1043,67 +1065,89 @@ Public Class TypeConverter
                 End If
                 Return True
             Case TypeCode.UInt16
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32007, Context.Location, "UShort")
             Case TypeCode.UInt32
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32007, Context.Location, "UInteger")
             Case TypeCode.UInt64
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32007, Context.Location, "ULong")
             Case TypeCode.DBNull
                 result = VB.Chr(0)
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, "Char")
     End Function
 
-    Public Shared Function ConvertToDateTime(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToDateTime(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Select Case SourceTypeCode
             Case TypeCode.Boolean
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Boolean", "Date")
             Case TypeCode.Byte
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Byte", "Date")
             Case TypeCode.Char
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Char", "Date")
             Case TypeCode.DateTime
                 result = Source
                 Return True
             Case TypeCode.Decimal
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Decimal", "Date")
             Case TypeCode.Double
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30533, Context.Location)
             Case TypeCode.Int16
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Short", "Date")
             Case TypeCode.Int32
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Integer", "Date")
             Case TypeCode.Int64
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Long", "Date")
             Case TypeCode.SByte
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "SByte", "Date")
             Case TypeCode.Single
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Single", "Date")
             Case TypeCode.String
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "String", "Date")
             Case TypeCode.UInt16
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "UShort", "Date")
             Case TypeCode.UInt32
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "UInteger", "Date")
             Case TypeCode.UInt64
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "ULong", "Date")
             Case TypeCode.DBNull
+                If ShowErrors = False Then Return False
                 result = New Date()
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, "Date")
     End Function
 
-    Public Shared Function ConvertToDecimal(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToDecimal(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Select Case SourceTypeCode
             Case TypeCode.Boolean
                 Dim i As Boolean = DirectCast(Source, Boolean)
                 result = CDec(i)
                 Return True
             Case TypeCode.Char
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Char", "Decimal")
             Case TypeCode.DateTime
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Date", "Decimal")
             Case TypeCode.Decimal
                 result = Source
@@ -1124,6 +1168,7 @@ Public Class TypeConverter
                     Return True
                 End If
             Case TypeCode.String
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "String", "Decimal")
             Case TypeCode.Byte, TypeCode.UInt16, TypeCode.UInt32, TypeCode.UInt64
                 result = CDec(CULng(Source))
@@ -1132,17 +1177,20 @@ Public Class TypeConverter
                 result = 0D
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, "Decimal")
     End Function
 
-    Public Shared Function ConvertToDouble(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToDouble(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Select Case SourceTypeCode
             Case TypeCode.Boolean
                 result = CDbl(DirectCast(Source, Boolean))
                 Return True
             Case TypeCode.Char
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Char", "Double")
             Case TypeCode.DateTime
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30532, Context.Location)
             Case TypeCode.Decimal
                 result = CDbl(DirectCast(Source, Decimal))
@@ -1157,6 +1205,7 @@ Public Class TypeConverter
                 result = CDbl(DirectCast(Source, Single))
                 Return True
             Case TypeCode.String
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "String", "Double")
             Case TypeCode.Byte, TypeCode.UInt16, TypeCode.UInt32, TypeCode.UInt64
                 result = CDbl(CULng(Source))
@@ -1165,10 +1214,11 @@ Public Class TypeConverter
                 result = 0.0R
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, "Double")
     End Function
 
-    Public Shared Function ConvertToInt16(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToInt16(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Const DEST As String = "Short"
 
         Select Case SourceTypeCode
@@ -1201,19 +1251,23 @@ Public Class TypeConverter
                     Return True
                 End If
             Case TypeCode.Char
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32006, Context.Location, DEST)
             Case TypeCode.DateTime
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Date", DEST)
             Case TypeCode.String
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, DEST, "String")
             Case TypeCode.DBNull
                 result = 0S
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, DEST)
     End Function
 
-    Public Shared Function ConvertToInt32(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToInt32(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Const DEST As String = "Integer"
 
         Select Case SourceTypeCode
@@ -1246,19 +1300,23 @@ Public Class TypeConverter
                     Return True
                 End If
             Case TypeCode.Char
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32006, Context.Location, DEST)
             Case TypeCode.DateTime
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Date", DEST)
             Case TypeCode.String
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, DEST, "String")
             Case TypeCode.DBNull
                 result = 0I
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, DEST)
     End Function
 
-    Public Shared Function ConvertToInt64(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToInt64(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Const DEST As String = "Long"
 
         Select Case SourceTypeCode
@@ -1291,19 +1349,23 @@ Public Class TypeConverter
                     Return True
                 End If
             Case TypeCode.Char
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32006, Context.Location, DEST)
             Case TypeCode.DateTime
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Date", DEST)
             Case TypeCode.String
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, DEST, "String")
             Case TypeCode.DBNull
                 result = 0L
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, DEST)
     End Function
 
-    Public Shared Function ConvertToSByte(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToSByte(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Select Case SourceTypeCode
             Case TypeCode.Boolean
                 Dim i As Boolean = DirectCast(Source, Boolean)
@@ -1316,8 +1378,10 @@ Public Class TypeConverter
                     Return True
                 End If
             Case TypeCode.Char
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32006, Context.Location, "SByte")
             Case TypeCode.DateTime
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Date", "SByte")
             Case TypeCode.Decimal
                 Dim i As Decimal = DirectCast(Source, Decimal)
@@ -1359,6 +1423,7 @@ Public Class TypeConverter
                     Return True
                 End If
             Case TypeCode.String
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "SByte", "String")
             Case TypeCode.UInt16
                 Dim i As UShort = DirectCast(Source, UShort)
@@ -1382,17 +1447,20 @@ Public Class TypeConverter
                 result = CSByte(0)
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, "SByte")
     End Function
 
-    Public Shared Function ConvertToSingle(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToSingle(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Select Case SourceTypeCode
             Case TypeCode.Boolean
                 result = CSng(DirectCast(Source, Boolean))
                 Return True
             Case TypeCode.Char
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Char", "Single")
             Case TypeCode.DateTime
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Date", "Single")
             Case TypeCode.Decimal
                 result = CSng(DirectCast(Source, Decimal))
@@ -1410,6 +1478,7 @@ Public Class TypeConverter
                 result = Source
                 Return True
             Case TypeCode.String
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "String", "Single")
             Case TypeCode.Byte, TypeCode.UInt16, TypeCode.UInt32, TypeCode.UInt64
                 result = CSng(CULng(Source))
@@ -1418,51 +1487,66 @@ Public Class TypeConverter
                 result = 0.0!
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, "Single")
     End Function
 
-    Public Shared Function ConvertToString(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToString(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Select Case SourceTypeCode
             Case TypeCode.Boolean
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "Boolean", "String")
             Case TypeCode.Byte
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "Byte", "String")
             Case TypeCode.Char
                 result = CStr(DirectCast(Source, Char))
                 Return True
             Case TypeCode.DateTime
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "Date", "String")
             Case TypeCode.Decimal
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "Decimal", "String")
             Case TypeCode.Double
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "Double", "String")
             Case TypeCode.Int16
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "Short", "String")
             Case TypeCode.Int32
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "Integer", "String")
             Case TypeCode.Int64
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "Long", "String")
             Case TypeCode.SByte
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "SByte", "String")
             Case TypeCode.Single
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "Single", "String")
             Case TypeCode.String
                 result = Source
                 Return True
             Case TypeCode.UInt16
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "UShort", "String")
             Case TypeCode.UInt32
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "UInteger", "String")
             Case TypeCode.UInt64
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, "ULong", "String")
             Case TypeCode.DBNull
                 result = Nothing
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, "String")
     End Function
 
-    Public Shared Function ConvertToUInt16(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToUInt16(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Const DEST As String = "UShort"
 
         Select Case SourceTypeCode
@@ -1495,19 +1579,23 @@ Public Class TypeConverter
                     Return True
                 End If
             Case TypeCode.Char
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32006, Context.Location, DEST)
             Case TypeCode.DateTime
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Date", DEST)
             Case TypeCode.String
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, DEST, "String")
             Case TypeCode.DBNull
                 result = 0US
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, DEST)
     End Function
 
-    Public Shared Function ConvertToUInt32(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToUInt32(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Const DEST As String = "UInteger"
 
         Select Case SourceTypeCode
@@ -1540,19 +1628,23 @@ Public Class TypeConverter
                     Return True
                 End If
             Case TypeCode.Char
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32006, Context.Location, DEST)
             Case TypeCode.DateTime
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Date", DEST)
             Case TypeCode.String
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, DEST, "String")
             Case TypeCode.DBNull
                 result = 0UI
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, DEST)
     End Function
 
-    Public Shared Function ConvertToUInt64(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object) As Boolean
+    Public Shared Function ConvertToUInt64(ByVal Context As ParsedObject, ByVal Source As Object, ByVal SourceTypeCode As TypeCode, ByRef result As Object, ByVal ShowErrors As Boolean) As Boolean
         Const DEST As String = "ULong"
 
         Select Case SourceTypeCode
@@ -1585,16 +1677,21 @@ Public Class TypeConverter
                     Return True
                 End If
             Case TypeCode.Char
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC32006, Context.Location, DEST)
             Case TypeCode.DateTime
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30311, Context.Location, "Date", DEST)
             Case TypeCode.String
+                If ShowErrors = False Then Return False
                 Return Context.Compiler.Report.ShowMessage(Messages.VBNC30060, Context.Location, DEST, "String")
             Case TypeCode.DBNull
                 result = 0UL
                 Return True
         End Select
+        If ShowErrors = False Then Return False
         Return Context.Compiler.Report.ShowMessage(Messages.VBNC30439, Context.Location, DEST)
     End Function
 
 End Class
+

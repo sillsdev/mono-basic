@@ -160,19 +160,28 @@ Public MustInherit Class BinaryExpression
 
         If operandType = TypeCode.Empty Then
             'Try operator overloading
-            If DoOperatorOverloading() = False Then
+            Dim showErrors As Boolean = Me.RightTypeCode = TypeCode.DBNull OrElse Me.LeftTypeCode = TypeCode.DBNull
+
+            result = DoOperatorOverloading(showErrors) AndAlso result
+
+            If result = False AndAlso showErrors = False Then
                 If (Me.Keyword = KS.ShiftLeft OrElse Me.Keyword = KS.ShiftRight) AndAlso Helper.CompareType(Me.LeftType, Compiler.TypeCache.System_Char) = False AndAlso Helper.CompareType(Me.LeftType, Compiler.TypeCache.System_DateTime) = False Then
                     If Helper.CompareType(Me.RightType, Compiler.TypeCache.System_Char) Then
-                        Compiler.Report.ShowMessage(Messages.VBNC32006, Location, Me.LeftType.Name)
+                        Compiler.Report.ShowMessage(Messages.VBNC32006, Location, Helper.ToString(Compiler, Compiler.TypeCache.System_Int32))
                     ElseIf Helper.CompareType(Me.RightType, Compiler.TypeCache.System_DateTime) Then
-                        Compiler.Report.ShowMessage(Messages.VBNC30311, Location, Me.LeftType.Name, Me.RightType.Name)
+                        Compiler.Report.ShowMessage(Messages.VBNC30311, Location, Helper.ToString(Compiler, Me.RightType), Helper.ToString(Compiler, Compiler.TypeCache.System_Int32))
                     Else
-                        Compiler.Report.ShowMessage(Messages.VBNC30452, Location, Enums.strSpecial(Me.Keyword), Me.LeftType.Name, Me.RightType.Name)
+                        Compiler.Report.ShowMessage(Messages.VBNC30452, Location, Enums.strSpecial(Me.Keyword), Helper.ToString(Compiler, Compiler.TypeCache.System_Int32), Helper.ToString(Compiler, Me.RightType))
                     End If
                 Else
-                    Compiler.Report.ShowMessage(Messages.VBNC30452, Location, Enums.strSpecial(Me.Keyword), Me.LeftType.Name, Me.RightType.Name)
+                    If Me.Keyword = KS.AndAlso AndAlso (Me.LeftTypeCode = TypeCode.DBNull OrElse Me.RightTypeCode = TypeCode.DBNull) Then
+                        Compiler.Report.ShowMessage(Messages.VBNC30452, Location, "And", Helper.ToString(Compiler, Me.LeftType), Helper.ToString(Compiler, Me.RightType))
+                    ElseIf Me.Keyword = KS.OrElse AndAlso (Me.LeftTypeCode = TypeCode.DBNull OrElse Me.RightTypeCode = TypeCode.DBNull) Then
+                        Compiler.Report.ShowMessage(Messages.VBNC30452, Location, "Or", Helper.ToString(Compiler, Me.LeftType), Helper.ToString(Compiler, Me.RightType))
+                    Else
+                        Compiler.Report.ShowMessage(Messages.VBNC30452, Location, Enums.strSpecial(Me.Keyword), Helper.ToString(Compiler, Me.LeftType), Helper.ToString(Compiler, Me.RightType))
+                    End If
                 End If
-                result = False
             End If
         Else
             'If X and Y are both intrinsic types, look up the result type in our operator tables and use that.
@@ -186,20 +195,46 @@ Public MustInherit Class BinaryExpression
             Dim isLeftIntrinsic As Boolean = Me.LeftTypeCode <> TypeCode.Object OrElse Helper.CompareType(Compiler.TypeCache.System_Object, Me.LeftType)
             Dim isRightIntrinsic As Boolean = Me.RightTypeCode <> TypeCode.Object OrElse Helper.CompareType(Compiler.TypeCache.System_Object, Me.RightType)
             Dim doOpOverloading As Boolean = False
+            Dim isStrict As Boolean?
 
             If isLeftIntrinsic AndAlso isRightIntrinsic OrElse IsOverloadable = False Then
                 Dim destinationType As Mono.Cecil.TypeReference
                 m_ExpressionType = Compiler.TypeResolution.TypeCodeToType(TypeConverter.GetBinaryResultType(Keyword, LeftTypeCode, RightTypeCode))
+
+                If Keyword <> KS.Is AndAlso Keyword <> KS.IsNot Then
+                    If Location.File(Compiler).IsOptionStrictOn Then
+                        If Helper.CompareType(m_LeftExpression.ExpressionType, Compiler.TypeCache.System_Object) Then
+                            If Keyword = KS.Equals OrElse Keyword = KS.NotEqual Then
+                                result = Compiler.Report.ShowMessage(Messages.VBNC32013, Me.Location, Enums.strSpecial(Keyword))
+                            Else
+                                result = Compiler.Report.ShowMessage(Messages.VBNC30038, Me.Location, Enums.strSpecial(Keyword))
+                            End If
+                        End If
+                        If Helper.CompareType(m_RightExpression.ExpressionType, Compiler.TypeCache.System_Object) Then
+                            If Keyword = KS.Equals OrElse Keyword = KS.NotEqual Then
+                                result = Compiler.Report.ShowMessage(Messages.VBNC32013, Me.Location, Enums.strSpecial(Keyword))
+                            Else
+                                result = Compiler.Report.ShowMessage(Messages.VBNC30038, Me.Location, Enums.strSpecial(Keyword))
+                            End If
+                        End If
+                    End If
+                End If
+
+                If LeftTypeCode = TypeCode.String AndAlso RightTypeCode = TypeCode.String AndAlso (Keyword = KS.Concat OrElse Keyword = KS.Add) Then
+                    isStrict = False
+                End If
+
                 If LeftTypeCode <> leftOperandType Then
                     destinationType = Compiler.TypeResolution.TypeCodeToType(leftOperandType)
-                    m_LeftExpression = Helper.CreateTypeConversion(Me, m_LeftExpression, destinationType, result)
+                    result = Helper.IsConvertible(Me, m_LeftExpression, m_LeftExpression.ExpressionType, destinationType, True, m_LeftExpression, True, isStrict)
                 End If
 
                 If RightTypeCode <> rightOperandType Then
                     destinationType = Compiler.TypeResolution.TypeCodeToType(rightOperandType)
-                    m_RightExpression = Helper.CreateTypeConversion(Me, m_RightExpression, destinationType, result)
+                    result = Helper.IsConvertible(Me, m_RightExpression, m_RightExpression.ExpressionType, destinationType, True, m_RightExpression, True, isStrict)
                 End If
                 Classification = New ValueClassification(Me)
+
             ElseIf isRightIntrinsic = False AndAlso isLeftIntrinsic = True Then
                 Dim convertsTo As TypeCode() = TypeResolution.GetIntrinsicTypesImplicitlyConvertibleFrom(Compiler, RightType)
                 convertsTo = Helper.GetMostEncompassedTypes(Compiler, convertsTo)
@@ -227,17 +262,48 @@ Public MustInherit Class BinaryExpression
             End If
 
             If doOpOverloading Then
-                result = DoOperatorOverloading() AndAlso result
+                result = DoOperatorOverloading(True) AndAlso result
             End If
         End If
 
         Return result
     End Function
 
-    Function DoOperatorOverloading() As Boolean
+    Function DoOperatorOverloading(ByVal ShowErrors As Boolean) As Boolean
         Dim result As Boolean = True
         Dim methods As New Generic.List(Of Mono.Cecil.MethodReference)
         Dim methodClassification As MethodGroupClassification
+        Dim arguments As ArgumentList
+
+        If Me.Keyword = KS.AndAlso OrElse Me.Keyword = KS.OrElse Then
+            If ShowErrors Then
+                If Me.Keyword = KS.AndAlso AndAlso (Me.LeftTypeCode = TypeCode.DBNull OrElse Me.RightTypeCode = TypeCode.DBNull) Then
+                    Compiler.Report.ShowMessage(Messages.VBNC30452, Location, "And", Helper.ToString(Compiler, Me.LeftType), Helper.ToString(Compiler, Me.RightType))
+                ElseIf Me.Keyword = KS.OrElse AndAlso (Me.LeftTypeCode = TypeCode.DBNull OrElse Me.RightTypeCode = TypeCode.DBNull) Then
+                    Compiler.Report.ShowMessage(Messages.VBNC30452, Location, "Or", Helper.ToString(Compiler, Me.LeftType), Helper.ToString(Compiler, Me.RightType))
+                Else
+                    Compiler.Report.ShowMessage(Messages.VBNC30452, Location, Enums.strSpecial(Me.Keyword), Helper.ToString(Compiler, Me.LeftType), Helper.ToString(Compiler, Me.RightType))
+                End If
+            End If
+            Return False
+        End If
+
+        If Me.Keyword = KS.Minus Then
+            'This is a special case, because Date has a custom - operator that takes (Date, Date), and both string and object
+            'are implicitly convertible to Date, so if we don't special case it we'll end up using that operator
+            If (Me.LeftTypeCode = TypeCode.String OrElse Helper.CompareType(Me.LeftType, Compiler.TypeCache.System_Object)) AndAlso Me.RightTypeCode = TypeCode.DateTime Then
+                If ShowErrors Then
+                    Compiler.Report.ShowMessage(Messages.VBNC30452, Location, "-", Helper.ToString(Compiler, Me.LeftType), Helper.ToString(Compiler, Me.RightType))
+                End If
+                Return False
+            ElseIf Me.LeftTypeCode = TypeCode.DateTime AndAlso (Me.RightTypeCode = TypeCode.String OrElse Helper.CompareType(Me.RightType, Compiler.TypeCache.System_Object)) Then
+                If ShowErrors Then
+                    Compiler.Report.ShowMessage(Messages.VBNC30452, Location, "-", Helper.ToString(Compiler, Me.LeftType), Helper.ToString(Compiler, Me.RightType))
+                End If
+                Return False
+            End If
+        End If
+
         methods = Helper.GetBinaryOperators(Compiler, CType(Me.Keyword, BinaryOperators), Me.LeftType)
         If Helper.CompareType(Me.LeftType, Me.RightType) = False Then
             Dim methods2 As New Generic.List(Of Mono.Cecil.MethodReference)
@@ -247,12 +313,15 @@ Public MustInherit Class BinaryExpression
             Next
         End If
         If methods.Count = 0 Then
-            result = Compiler.Report.ShowMessage(Messages.VBNC30452, Me.Location, Enums.strSpecial(Me.Keyword), Me.LeftType.FullName, Me.RightType.FullName) AndAlso result
-            If result = False Then Return result
+            If ShowErrors Then Compiler.Report.ShowMessage(Messages.VBNC30452, Me.Location, Enums.strSpecial(Me.Keyword), Helper.ToString(Compiler, Me.LeftType), Helper.ToString(Compiler, Me.RightType))
+            Return False
         End If
         methodClassification = New MethodGroupClassification(Me, Nothing, Nothing, New Expression() {Me.m_LeftExpression, Me.m_RightExpression}, methods.ToArray)
-        result = methodClassification.ResolveGroup(New ArgumentList(Me, Me.m_LeftExpression, m_RightExpression)) AndAlso result
+        arguments = New ArgumentList(Me, Me.m_LeftExpression, m_RightExpression)
+        result = methodClassification.ResolveGroup(arguments, ShowErrors, False) AndAlso result
         result = methodClassification.SuccessfullyResolved AndAlso result
+        If result = False Then Return result
+        result = methodClassification.VerifyGroup(arguments, ShowErrors) AndAlso result
         If result = False Then Return result
         m_ExpressionType = methodClassification.ResolvedMethodInfo.ReturnType
         Classification = methodClassification
@@ -268,12 +337,6 @@ Public MustInherit Class BinaryExpression
     Overridable ReadOnly Property LeftOperandTypeCode() As TypeCode
         Get
             Return OperandTypeCode
-        End Get
-    End Property
-
-    Public Overrides ReadOnly Property IsConstant() As Boolean
-        Get
-            Return m_LeftExpression.IsConstant AndAlso m_RightExpression.IsConstant
         End Get
     End Property
 
@@ -300,8 +363,33 @@ Public MustInherit Class BinaryExpression
         End Get
     End Property
 
+    Public Overrides Function GetConstant(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim rvalue As Object = Nothing
+        Dim lvalue As Object = Nothing
+
+        If Not m_LeftExpression.GetConstant(lvalue, ShowError) Then Return False
+        If Not m_RightExpression.GetConstant(rvalue, ShowError) Then Return False
+
+        If lvalue Is Nothing Or rvalue Is Nothing Then
+            result = Nothing
+            Return True
+        End If
+
+        If Not GetConstant(result, lvalue, rvalue) Then
+            If ShowError Then Show30059()
+            Return False
+        End If
+
+        Return True
+    End Function
+
+    Public Overridable Overloads Function GetConstant(ByRef m_ConstantValue As Object, ByVal lvalue As Object, ByVal rvalue As Object) As Boolean
+        Return False
+    End Function
+
 #If DEBUG Then
     Protected MustOverride Overrides Function GenerateCodeInternal(ByVal Info As EmitInfo) As Boolean
 #End If
     MustOverride ReadOnly Property Keyword() As KS
 End Class
+

@@ -165,7 +165,7 @@ Public Class CecilHelper
         If genericType Is Nothing Then Return Member
 
         result = New Mono.Cecil.GenericInstanceType(Member)
-        result.DeclaringType = FindDefinition(Type)
+        ' result.DeclaringType = FindDefinition(Type)
 
         Dim tGI As Mono.Cecil.GenericInstanceType = TryCast(Type, Mono.Cecil.GenericInstanceType)
         If Member.DeclaringType IsNot Nothing AndAlso tGI IsNot Nothing AndAlso Helper.CompareType(Member.DeclaringType, tGI.ElementType) Then
@@ -468,6 +468,10 @@ Public Class CecilHelper
             End If
         Next
 
+        For i As Integer = 0 To arguments.Count - 1
+            If arguments(i) Is original Then Return arguments(i)
+        Next
+
         If original.IsNested Then
             Dim parentType As TypeReference = InflateType(original.DeclaringType, parameters, arguments)
             If parentType IsNot original Then
@@ -515,6 +519,9 @@ Public Class CecilHelper
 
         If mD IsNot Nothing Then Return GetCorrectMember(mD, Type, Emittable)
 
+        mD = FindDefinition(Member)
+        If mD IsNot Nothing Then Return GetCorrectMember(mD, Type, Emittable)
+
         Throw New NotImplementedException
     End Function
 
@@ -528,6 +535,24 @@ Public Class CecilHelper
         End If
 
         Throw New NotImplementedException
+    End Function
+
+    Shared Function CloneGenericParameter(gp As GenericParameter) As GenericParameter
+        Dim rv As New GenericParameter(gp.Name, gp.Owner)
+        rv.Attributes = gp.Attributes
+        If gp.HasConstraints Then
+            For i As Integer = 0 To gp.Constraints.Count - 1
+                rv.Constraints.Add(gp.Constraints(i))
+            Next
+        End If
+        rv.HasDefaultConstructorConstraint = gp.HasDefaultConstructorConstraint
+        rv.HasNotNullableValueTypeConstraint = gp.HasNotNullableValueTypeConstraint
+        rv.HasReferenceTypeConstraint = gp.HasReferenceTypeConstraint
+        rv.IsContravariant = gp.IsContravariant
+        rv.IsCovariant = gp.IsCovariant
+        rv.IsNonVariant = gp.IsNonVariant
+
+        Return rv
     End Function
 
     Public Shared Function GetCorrectMember(ByVal Member As MethodDefinition, ByVal Arguments As Mono.Collections.Generic.Collection(Of TypeReference), Optional ByVal Emittable As Boolean = False) As Mono.Cecil.MethodReference
@@ -546,8 +571,8 @@ Public Class CecilHelper
         result.OriginalMethod = Member
 
         For i As Integer = 0 To Member.GenericParameters.Count - 1
-            result.GenericParameters.Add(Member.GenericParameters(i))
-            reflectableMember.GenericParameters.Add(Member.GenericParameters(i))
+            result.GenericParameters.Add(CloneGenericParameter(Member.GenericParameters(i)))
+            reflectableMember.GenericParameters.Add(CloneGenericParameter(Member.GenericParameters(i)))
         Next
 
         For i As Integer = 0 To Member.Parameters.Count - 1
@@ -749,7 +774,8 @@ Public Class CecilHelper
         For i As Integer = 0 To tD.NestedTypes.Count - 1
             If Helper.CompareName(tD.NestedTypes(i).Name, Name) Then Return tD.NestedTypes(i)
         Next
-        Return Nothing
+        If tD.BaseType Is Nothing Then Return Nothing
+        Return GetNestedType(tD.BaseType, Name)
     End Function
 
     Public Shared Function GetNestedTypes(ByVal Type As TypeReference) As Mono.Collections.Generic.Collection(Of TypeDefinition)
@@ -777,6 +803,15 @@ Public Class CecilHelper
 
     Public Shared Function IsStatic(ByVal Method As Mono.Cecil.MethodReference) As Boolean
         Return FindDefinition(Method).IsStatic
+    End Function
+
+    Public Shared Function IsStatic(ByVal [Property] As PropertyReference) As Boolean
+        Dim pd As PropertyDefinition = FindDefinition([Property])
+
+        If pd.GetMethod IsNot Nothing Then Return IsStatic(pd.GetMethod)
+        If pd.SetMethod IsNot Nothing Then Return IsStatic(pd.SetMethod)
+
+        Return False
     End Function
 
     Public Shared Function MakeArrayType(ByVal Type As Mono.Cecil.TypeReference, Optional ByVal Ranks As Integer = 1) As Mono.Cecil.ArrayType
@@ -952,6 +987,20 @@ Public Class CecilHelper
         Return Type.IsValueType
     End Function
 
+    Public Shared Function CreateNullableType(ByVal Context As BaseObject, ByVal Type As TypeReference, ByRef result As TypeReference) As Boolean
+        If CecilHelper.IsValueType(Type) = False Then
+            Dim gp As GenericParameter = TryCast(Type, GenericParameter)
+            If gp Is Nothing OrElse gp.HasNotNullableValueTypeConstraint = False Then
+                Return Context.Compiler.Report.ShowMessage(Messages.VBNC33101, Context.Location, Helper.ToString(Context.Compiler, Type))
+            End If
+        End If
+
+        Dim git As New GenericInstanceType(Context.Compiler.TypeCache.System_Nullable1)
+        git.GenericArguments.Add(Type)
+        result = git
+        Return True
+    End Function
+
     Public Shared Function IsNullable(ByVal Type As TypeReference) As Boolean
         Dim git As GenericInstanceType
 
@@ -1104,6 +1153,19 @@ Public Class CecilHelper
         Return tD.IsClass
     End Function
 
+    Public Shared Function IsReferenceTypeOrGenericReferenceTypeParameter(ByVal Type As TypeReference) As Boolean
+        Dim tg As GenericParameter = TryCast(Type, GenericParameter)
+        Dim td As TypeDefinition
+
+        If tg IsNot Nothing Then
+            If tg.HasReferenceTypeConstraint Then Return True
+            Return False
+        End If
+
+        td = FindDefinition(Type)
+        Return (td.IsInterface OrElse td.IsClass) AndAlso td.IsValueType = False
+    End Function
+
     Public Shared Function GetGenericParameterAttributes(ByVal Type As TypeReference) As GenericParameterAttributes
         Dim gt As Mono.Cecil.GenericParameter
 
@@ -1252,14 +1314,13 @@ Public Class CecilHelper
         If method Is Nothing Then Return Nothing
         Dim pD As PropertyDefinition
 
+        pD = TryCast(method, PropertyDefinition)
+        If pD IsNot Nothing Then Return pD
+
         If method.Annotations.Contains("OriginalProperty") Then
             pD = DirectCast(method.Annotations("OriginalProperty"), PropertyDefinition)
             Return pD
         End If
-
-        pD = TryCast(method, PropertyDefinition)
-
-        If pD IsNot Nothing Then Return pD
 
         Dim type As TypeDefinition = FindDefinition(method.DeclaringType)
         'method = method.GetOriginalMethod
@@ -1360,5 +1421,5 @@ Public Class CecilHelper
         End If
         Return Helper.CompareNameOrdinal(a.FullName, b.FullName)
     End Function
-
 End Class
+

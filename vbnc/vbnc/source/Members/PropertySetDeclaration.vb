@@ -43,19 +43,12 @@ Public Class PropertySetDeclaration
 
         mySignature = New SubSignature(Me)
 
-        If PropertySignature.TypeParameters IsNot Nothing Then
-            typeParams = PropertySignature.TypeParameters.Clone()
-            typeParams.Initialize(mySignature)
-        Else
-            typeParams = Nothing
-        End If
+        typeParams = PropertySignature.TypeParameters
         If SetParameters IsNot Nothing Then
             params = SetParameters
         Else
             params = New ParameterList(Me)
         End If
-
-        Helper.Assert(CecilBuilder.Parameters.Count = params.Count)
 
         If params.Count = 1 Then
             manualValue = True
@@ -69,29 +62,25 @@ Public Class PropertySetDeclaration
 
         If PropertySignature.Parameters IsNot Nothing Then
             Dim tmp As Parameter = Nothing
-            Dim ctmp As Mono.Cecil.ParameterDefinition = Nothing
 
             'The 'value' parameter should go at the end, so take it out of the list, add the other parameters, and add it back again
             If manualValue Then
                 tmp = params(0)
-                ctmp = CecilBuilder.Parameters(0)
                 params.Clear()
-                CecilBuilder.Parameters.Clear()
             End If
 
             For i As Integer = 0 To PropertySignature.Parameters.Count - 1
                 params.Add(PropertySignature.Parameters(i).Clone(params))
             Next
+
             If manualValue Then
                 params.Add(tmp)
-                CecilBuilder.Parameters.Add(ctmp)
-                ctmp.Sequence = CecilBuilder.Parameters.Count
             End If
         End If
 
         ' Setter without a 'value', create it automatically
         If manualValue = False Then
-            Dim valueName As String = "value"
+            Dim valueName As String = "Value"
             Dim param As Parameter
             If PropertySignature.ReturnType IsNot Nothing Then
                 param = New Parameter(params, valueName, PropertySignature.ReturnType)

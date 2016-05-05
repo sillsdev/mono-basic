@@ -44,7 +44,11 @@ Public Class NotEqualsExpression
             Case TypeCode.Object
                 Helper.Assert(Helper.CompareType(OperandType, Compiler.TypeCache.System_Object))
                 Emitter.EmitLoadI4Value(Info, Info.IsOptionCompareText)
-                Emitter.EmitCall(Info, Compiler.TypeCache.MS_VB_CS_Operators__ConditionalCompareObjectNotEqual_Object_Object_Boolean)
+                If Helper.CompareType(ExpressionType, Compiler.TypeCache.System_Object) Then
+                    Emitter.EmitCall(Info, Compiler.TypeCache.MS_VB_CS_Operators__CompareObjectNotEqual_Object_Object_Boolean)
+                Else
+                    Emitter.EmitCall(Info, Compiler.TypeCache.MS_VB_CS_Operators__ConditionalCompareObjectNotEqual_Object_Object_Boolean)
+                End If
             Case TypeCode.String
                 Emitter.EmitLoadI4Value(Info, Info.IsOptionCompareText)
                 Emitter.EmitCall(Info, Compiler.TypeCache.MS_VB_CS_Operators__CompareString_String_String_Boolean)
@@ -57,7 +61,6 @@ Public Class NotEqualsExpression
         Return result
     End Function
 
-
     Sub New(ByVal Parent As ParsedObject, ByVal LExp As Expression, ByVal RExp As Expression)
         MyBase.New(Parent, LExp, RExp)
     End Sub
@@ -68,71 +71,64 @@ Public Class NotEqualsExpression
         End Get
     End Property
 
-    Public Overrides ReadOnly Property IsConstant() As Boolean
-        Get
-            Return MyBase.IsConstant 'CHECK: is this true?
-        End Get
-    End Property
+    Public Overrides Function GetConstant(ByRef m_ConstantValue As Object, ByVal lvalue As Object, ByVal rvalue As Object) As Boolean
+        Dim tlvalue, trvalue As Mono.Cecil.TypeReference
+        Dim clvalue, crvalue As TypeCode
 
-    Public Overrides ReadOnly Property ConstantValue() As Object
-        Get
-            Dim rvalue, lvalue As Object
-            lvalue = m_LeftExpression.ConstantValue
-            rvalue = m_RightExpression.ConstantValue
-            If lvalue Is Nothing Or rvalue Is Nothing Then
-                Return Nothing
-            Else
+        tlvalue = CecilHelper.GetType(Compiler, lvalue)
+        clvalue = Helper.GetTypeCode(Compiler, tlvalue)
+        trvalue = CecilHelper.GetType(Compiler, rvalue)
+        crvalue = Helper.GetTypeCode(Compiler, trvalue)
 
-                Dim tlvalue, trvalue As Mono.Cecil.TypeReference
-                Dim clvalue, crvalue As TypeCode
-                tlvalue = CecilHelper.GetType(Compiler, lvalue)
-                clvalue = Helper.GetTypeCode(Compiler, tlvalue)
-                trvalue = CecilHelper.GetType(Compiler, rvalue)
-                crvalue = Helper.GetTypeCode(Compiler, trvalue)
+        If clvalue = TypeCode.Boolean AndAlso crvalue = TypeCode.Boolean Then
+            m_ConstantValue = CBool(lvalue) <> CBool(rvalue)
+            Return True
+        ElseIf clvalue = TypeCode.DateTime AndAlso crvalue = TypeCode.DateTime Then
+            m_ConstantValue = CDate(lvalue) <> CDate(rvalue)
+            Return True
+        ElseIf clvalue = TypeCode.Char AndAlso crvalue = TypeCode.Char Then
+            m_ConstantValue = CChar(lvalue) <> CChar(rvalue)
+            Return True
+        ElseIf clvalue = TypeCode.String AndAlso crvalue = TypeCode.String Then
+            m_ConstantValue = CStr(lvalue) <> CStr(rvalue)
+            Return True
+        ElseIf clvalue = TypeCode.String AndAlso crvalue = TypeCode.Char OrElse _
+         clvalue = TypeCode.Char AndAlso crvalue = TypeCode.String Then
+            m_ConstantValue = CStr(lvalue) <> CStr(rvalue)
+            Return True
+        End If
 
-                If clvalue = TypeCode.Boolean AndAlso crvalue = TypeCode.Boolean Then
-                    Return CBool(lvalue) <> CBool(rvalue)
-                ElseIf clvalue = TypeCode.DateTime AndAlso crvalue = TypeCode.DateTime Then
-                    Return CDate(lvalue) <> CDate(rvalue)
-                ElseIf clvalue = TypeCode.Char AndAlso crvalue = TypeCode.Char Then
-                    Return CChar(lvalue) <> CChar(rvalue)
-                ElseIf clvalue = TypeCode.String AndAlso crvalue = TypeCode.String Then
-                    Return CStr(lvalue) <> CStr(rvalue)
-                ElseIf clvalue = TypeCode.String AndAlso crvalue = TypeCode.Char OrElse _
-                 clvalue = TypeCode.Char AndAlso crvalue = TypeCode.String Then
-                    Return CStr(lvalue) <> CStr(rvalue)
-                End If
+        Dim csmallest As TypeCode
+        csmallest = TypeConverter.GetNotEqualsOperandType(clvalue, crvalue)
 
-                Dim csmallest As TypeCode
-                csmallest = TypeConverter.GetNotEqualsOperandType(clvalue, crvalue)
+        Select Case csmallest
+            Case TypeCode.Byte
+                m_ConstantValue = CByte(lvalue) <> CByte(rvalue)
+            Case TypeCode.SByte
+                m_ConstantValue = CSByte(lvalue) <> CSByte(rvalue)
+            Case TypeCode.Int16
+                m_ConstantValue = CShort(lvalue) <> CShort(rvalue)
+            Case TypeCode.UInt16
+                m_ConstantValue = CUShort(lvalue) <> CUShort(rvalue)
+            Case TypeCode.Int32
+                m_ConstantValue = CInt(lvalue) <> CInt(rvalue)
+            Case TypeCode.UInt32
+                m_ConstantValue = CUInt(lvalue) <> CUInt(rvalue)
+            Case TypeCode.Int64
+                m_ConstantValue = CLng(lvalue) <> CLng(rvalue)
+            Case TypeCode.UInt64
+                m_ConstantValue = CULng(lvalue) <> CULng(rvalue)
+            Case TypeCode.Double
+                m_ConstantValue = CDbl(lvalue) <> CDbl(rvalue)
+            Case TypeCode.Single
+                m_ConstantValue = CSng(lvalue) <> CSng(rvalue)
+            Case TypeCode.Decimal
+                m_ConstantValue = CDec(lvalue) <> CDec(rvalue)
+            Case Else
+                Return False
+        End Select
 
-                Select Case csmallest
-                    Case TypeCode.Byte
-                        Return CByte(lvalue) <> CByte(rvalue)
-                    Case TypeCode.SByte
-                        Return CSByte(lvalue) <> CSByte(rvalue)
-                    Case TypeCode.Int16
-                        Return CShort(lvalue) <> CShort(rvalue)
-                    Case TypeCode.UInt16
-                        Return CUShort(lvalue) <> CUShort(rvalue)
-                    Case TypeCode.Int32
-                        Return CInt(lvalue) <> CInt(rvalue)
-                    Case TypeCode.UInt32
-                        Return CUInt(lvalue) <> CUInt(rvalue)
-                    Case TypeCode.Int64
-                        Return CLng(lvalue) <> CLng(rvalue)
-                    Case TypeCode.UInt64
-                        Return CULng(lvalue) <> CULng(rvalue)
-                    Case TypeCode.Double
-                        Return CDbl(lvalue) <> CDbl(rvalue)
-                    Case TypeCode.Single
-                        Return CSng(lvalue) <> CSng(rvalue)
-                    Case TypeCode.Decimal
-                        Return CDec(lvalue) <> CDec(rvalue)
-                    Case Else
-                        Throw New InternalException(Me)
-                End Select
-            End If
-        End Get
-    End Property
+        Return True
+    End Function
 End Class
+

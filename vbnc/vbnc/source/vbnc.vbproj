@@ -33,7 +33,7 @@
     <UpgradeBackupLocation>
     </UpgradeBackupLocation>
     <OptionStrict>On</OptionStrict>
-    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <PublishUrl>http://localhost/vbnc</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Web</InstallFrom>
@@ -48,6 +48,7 @@
     <ApplicationVersion>0.0.0.0</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <OutputPath>..\bin\</OutputPath>
@@ -175,6 +176,7 @@
     <Compile Include="Expressions\Classifications\VariableClassification.vb" />
     <Compile Include="Expressions\Classifications\VoidClassification.vb" />
     <Compile Include="Expressions\CompilerGeneratedExpression.vb" />
+    <Compile Include="Expressions\Conversions\ConversionType.vb" />
     <Compile Include="Expressions\IfExpression.vb" />
     <Compile Include="Expressions\LateBoundAccessToExpression.vb" />
     <Compile Include="Expressions\LateBoundAccessToPropertyAccessExpression.vb" />
@@ -201,6 +203,7 @@
     <Compile Include="General\NamespaceDictionary.vb" />
     <Compile Include="General\TypeDictionary.vb" />
     <Compile Include="General\TypeList.vb" />
+    <Compile Include="General\Version.vb" />
     <Compile Include="Infos\ExpressionResolveInfo.vb" />
     <Compile Include="Interfaces\IHasImplicitMembers.vb" />
     <Compile Include="Interfaces\IHasImplicitTypes.vb" />
@@ -228,9 +231,7 @@
     <Compile Include="Interfaces\IAttributableDeclaration.vb" />
     <Compile Include="Interfaces\IAttributableNamedDeclaration.vb" />
     <Compile Include="Interfaces\IBaseObject.vb" />
-    <Compile Include="Interfaces\IDefinableType.vb" />
     <Compile Include="Interfaces\IEmittable.vb" />
-    <Compile Include="Interfaces\IDefinableMember.vb" />
     <Compile Include="Interfaces\IMember.vb" />
     <Compile Include="Interfaces\IMethod.vb" />
     <Compile Include="Interfaces\INameable.vb" />
@@ -514,9 +515,12 @@
     <Compile Include="Types\TypeParameters.vb" />
     <Compile Include="General\TypeResolution.vb" />
     <Compile Include="Expressions\Classifications\ExpressionClassification.Classifications.vb" />
-    <EmbeddedResource Include="Resources\Errors.resx" />
+    <EmbeddedResource Include="Resources\Errors.resx">
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
     <EmbeddedResource Include="vbnc.rsp" />
     <Content Include="Notes.txt" />
+    <None Include="app.config" />
     <None Include="General\TypeCache.in" />
     <None Include="Resources\Source.xml">
       <SubType>Designer</SubType>

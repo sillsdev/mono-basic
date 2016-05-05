@@ -30,7 +30,313 @@ Public MustInherit Class ConversionExpression
         End Get
     End Property
 
-    Shared Function GetTypeConversion(ByVal Parent As ParsedObject, ByVal fromExpr As Expression, ByVal DestinationType As Mono.Cecil.TypeReference) As Expression
+    Public Function ConvertToByte(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, result))
+
+        Select Case tpCode
+            Case TypeCode.Boolean, TypeCode.Byte
+                result = CByte(result) 'No range checking needed.
+            Case TypeCode.SByte, TypeCode.Int16, TypeCode.UInt16, TypeCode.Int32, TypeCode.UInt32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Single, TypeCode.Double, TypeCode.Decimal
+                If Compiler.TypeResolution.CheckNumericRange(result, result, ExpressionType) = False Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30439, Location, Helper.ToString(Expression, ExpressionType))
+                    Return False
+                End If
+            Case TypeCode.DBNull
+                result = CByte(0)
+            Case Else
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Location, result.ToString, Helper.ToString(Expression, ExpressionType))
+                Return False
+        End Select
+
+        Return True
+    End Function
+
+    Public Function ConvertToSByte(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, result))
+
+        Select Case tpCode
+            Case TypeCode.SByte
+                result = CSByte(result) 'No range checking needed.
+            Case TypeCode.Boolean, TypeCode.Byte, TypeCode.Int16, TypeCode.UInt16, TypeCode.Int32, TypeCode.UInt32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Single, TypeCode.Double, TypeCode.Decimal, TypeCode.DBNull
+                If Compiler.TypeResolution.CheckNumericRange(result, result, ExpressionType) = False Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30439, Location, Helper.ToString(Expression, ExpressionType))
+                    Return False
+                End If
+            Case Else
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Location, result.ToString, Helper.ToString(Expression, ExpressionType))
+                Return False
+        End Select
+
+        Return True
+    End Function
+
+    Public Function ConvertToShort(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, result))
+
+        Select Case tpCode
+            Case TypeCode.Boolean, TypeCode.SByte, TypeCode.Byte, TypeCode.Int16
+                result = CShort(result) 'No range checking needed.
+            Case TypeCode.UInt16, TypeCode.Int32, TypeCode.UInt32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Single, TypeCode.Double, TypeCode.Decimal, TypeCode.DBNull
+                If Compiler.TypeResolution.CheckNumericRange(result, result, ExpressionType) = False Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30439, Location, Helper.ToString(Expression, ExpressionType))
+                    Return False
+                End If
+            Case Else
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Location, result.ToString, Helper.ToString(Expression, ExpressionType))
+                Return False
+        End Select
+
+        Return True
+    End Function
+
+    Public Function ConvertToUShort(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, result))
+
+        Select Case tpCode
+            Case TypeCode.Boolean, TypeCode.Byte, TypeCode.UInt16
+                result = CUShort(result) 'No range checking needed.
+            Case TypeCode.Int16, TypeCode.Int32, TypeCode.SByte, TypeCode.UInt32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Single, TypeCode.Double, TypeCode.Decimal, TypeCode.DBNull
+                If Compiler.TypeResolution.CheckNumericRange(result, result, ExpressionType) = False Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30439, Location, Helper.ToString(Expression, ExpressionType))
+                    Return False
+                End If
+            Case Else
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Location, result.ToString, Helper.ToString(Expression, ExpressionType))
+                Return False
+        End Select
+
+        Return True
+    End Function
+
+    Public Function ConvertToInt32(ByRef originalValue As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, originalValue))
+        Select Case tpCode
+            Case TypeCode.Boolean, TypeCode.SByte, TypeCode.Byte, TypeCode.Int16, TypeCode.UInt16, TypeCode.Int32
+                originalValue = CInt(originalValue) 'No range checking needed.
+            Case TypeCode.UInt32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Single, TypeCode.Double, TypeCode.Decimal, TypeCode.DBNull
+                If Compiler.TypeResolution.CheckNumericRange(originalValue, originalValue, ExpressionType) = False Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30439, Location, Helper.ToString(Expression, ExpressionType))
+                    Return False
+                End If
+            Case Else
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Location, originalValue.ToString, Helper.ToString(Expression, ExpressionType))
+                Return False
+        End Select
+
+        Return True
+    End Function
+
+    Public Function ConvertToUInt32(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, result))
+        Select Case tpCode
+            Case TypeCode.Boolean, TypeCode.Byte, TypeCode.UInt16, TypeCode.UInt32
+                result = CUInt(result) 'No range checking needed.
+            Case TypeCode.SByte, TypeCode.Int16, TypeCode.Int32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Single, TypeCode.Double, TypeCode.Decimal, TypeCode.DBNull
+                If Compiler.TypeResolution.CheckNumericRange(result, result, ExpressionType) = False Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30439, Location, Helper.ToString(Expression, ExpressionType))
+                    Return False
+                End If
+            Case Else
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Location, result.ToString, Helper.ToString(Expression, ExpressionType))
+                Return False
+        End Select
+
+        Return True
+    End Function
+
+    Public Function ConvertToLong(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, result))
+
+        Select Case tpCode
+            Case TypeCode.Boolean, TypeCode.SByte, TypeCode.Byte, TypeCode.Int16, TypeCode.UInt16, TypeCode.Int32, TypeCode.Int64, TypeCode.UInt32
+                result = CLng(result) 'No range checking needed.
+            Case TypeCode.UInt64, TypeCode.Single, TypeCode.Double, TypeCode.Decimal, TypeCode.DBNull
+                If Compiler.TypeResolution.CheckNumericRange(result, result, ExpressionType) = False Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30439, Location, Helper.ToString(Expression, ExpressionType))
+                    Return False
+                End If
+            Case Else
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Location, result.ToString, Helper.ToString(Expression, ExpressionType))
+                Return False
+        End Select
+
+        Return True
+    End Function
+
+    Public Function ConvertToULong(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, result))
+        Select Case tpCode
+            Case TypeCode.Boolean, TypeCode.Byte, TypeCode.UInt16, TypeCode.UInt32, TypeCode.UInt64
+                result = CULng(result) 'No range checking needed.
+            Case TypeCode.Int16, TypeCode.Int32, TypeCode.SByte, TypeCode.Int64, TypeCode.Single, TypeCode.Double, TypeCode.Decimal, TypeCode.DBNull
+                If Compiler.TypeResolution.CheckNumericRange(result, result, ExpressionType) = False Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30439, Location, Helper.ToString(Expression, ExpressionType))
+                    Return False
+                End If
+            Case Else
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Location, result.ToString, Helper.ToString(Expression, ExpressionType))
+                Return False
+        End Select
+
+        Return True
+    End Function
+
+    Public Function ConvertToSingle(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, result))
+
+        Select Case tpCode
+            Case TypeCode.Boolean, TypeCode.SByte, TypeCode.Byte, TypeCode.Int16, TypeCode.UInt16, TypeCode.Int32, TypeCode.UInt32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Single, TypeCode.Decimal
+                result = CSng(result) 'No range checking needed.
+            Case TypeCode.Double, TypeCode.DBNull
+                If Compiler.TypeResolution.CheckNumericRange(result, result, ExpressionType) = False Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30439, Location, Helper.ToString(Expression, ExpressionType))
+                    Return False
+                End If
+            Case Else
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Location, result.ToString, Helper.ToString(Expression, ExpressionType))
+                Return False
+        End Select
+
+        Return True
+    End Function
+
+    Public Function ConvertToDouble(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, result))
+
+        Select Case tpCode
+            Case TypeCode.Boolean, TypeCode.SByte, TypeCode.Byte, TypeCode.Int16, TypeCode.UInt16, TypeCode.Int32, _
+            TypeCode.UInt32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Single, TypeCode.Double, TypeCode.Decimal
+                result = CDbl(result) 'No range checking needed.
+            Case TypeCode.DBNull
+                result = CDbl(0)
+            Case Else
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Location, result.ToString, Helper.ToString(Expression, ExpressionType))
+                Return False
+        End Select
+
+        Return True
+    End Function
+
+    Public Function ConvertToDecimal(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, result))
+
+        Select Case tpCode
+            Case TypeCode.Boolean, TypeCode.SByte, TypeCode.Byte, TypeCode.Int16, TypeCode.UInt16, TypeCode.Int32, TypeCode.UInt32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Decimal
+                result = CDec(result) 'No range checking needed.
+            Case TypeCode.Single, TypeCode.Double, TypeCode.DBNull
+                If Compiler.TypeResolution.CheckNumericRange(result, result, ExpressionType) = False Then
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30439, Expression.Location, ExpressionType.ToString)
+                    Return False
+                End If
+            Case Else
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Expression.Location, result.ToString, ExpressionType.ToString)
+                Return False
+        End Select
+
+        Return True
+    End Function
+
+    Public Function ConvertToDate(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, result))
+
+        If Not TypeOf result Is Date Then
+            If ShowError Then Show30059()
+            Return False
+        End If
+
+        Return True
+    End Function
+
+    Public Function ConvertToChar(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, result))
+
+        Select Case tpCode
+            Case TypeCode.String
+                If CStr(result).Length = 1 Then
+                    result = CChar(result)
+                Else
+                    If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Location, result.ToString, ExpressionType.ToString)
+                    Return False
+                End If
+            Case TypeCode.Char
+                result = CChar(result)
+            Case TypeCode.DBNull
+                result = VB.ChrW(0)
+            Case Else
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Location, result.ToString, ExpressionType.ToString)
+                Return False
+        End Select
+
+        Return True
+    End Function
+
+    Public Function ConvertToString(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        If result Is Nothing Then Return True
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, result))
+
+        Select Case tpCode
+            Case TypeCode.Char, TypeCode.String
+                result = CStr(result)
+            Case TypeCode.DBNull
+                result = DBNull.Value
+            Case Else
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Location, result.ToString, Helper.ToString(Expression, ExpressionType))
+                Return False
+        End Select
+
+        Return True
+    End Function
+
+    Public Function ConvertToBoolean(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Dim tpCode As TypeCode
+
+        tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, result))
+
+        Select Case tpCode
+            Case TypeCode.Boolean, TypeCode.SByte, TypeCode.Byte, TypeCode.Int16, TypeCode.UInt16, TypeCode.Int32, _
+              TypeCode.UInt32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Single, TypeCode.Double, TypeCode.Decimal
+                result = CBool(result) 'No range checking needed.
+            Case TypeCode.DBNull
+                result = CBool(Nothing)
+            Case Else
+                If ShowError Then Compiler.Report.ShowMessage(Messages.VBNC30060, Location, result.ToString, Helper.ToString(Expression, ExpressionType))
+                Return False
+        End Select
+
+        Return True
+    End Function
+
+    Shared Function GetTypeConversion(ByVal Parent As ParsedObject, ByVal fromExpr As Expression, ByVal DestinationType As Mono.Cecil.TypeReference, Optional ByVal IsExplicit As Boolean = False) As Expression
+        Dim convExp As ConversionExpression
 
         If Helper.CompareType(fromExpr.ExpressionType, DestinationType) Then
             Return fromExpr
@@ -38,35 +344,35 @@ Public MustInherit Class ConversionExpression
 
         Select Case Helper.GetTypeCode(Parent.Compiler, DestinationType)
             Case TypeCode.Boolean
-                Return New CBoolExpression(Parent, fromExpr)
+                convExp = New CBoolExpression(Parent, fromExpr)
             Case TypeCode.Byte
-                Return New CByteExpression(Parent, fromExpr)
+                convExp = New CByteExpression(Parent, fromExpr)
             Case TypeCode.Char
-                Return New CCharExpression(Parent, fromExpr)
+                convExp = New CCharExpression(Parent, fromExpr)
             Case TypeCode.DateTime
-                Return New CDateExpression(Parent, fromExpr)
+                convExp = New CDateExpression(Parent, fromExpr)
             Case TypeCode.Decimal
-                Return New CDecExpression(Parent, fromExpr)
+                convExp = New CDecExpression(Parent, fromExpr)
             Case TypeCode.Double
-                Return New CDblExpression(Parent, fromExpr)
+                convExp = New CDblExpression(Parent, fromExpr)
             Case TypeCode.Int16
-                Return New CShortExpression(Parent, fromExpr)
+                convExp = New CShortExpression(Parent, fromExpr)
             Case TypeCode.Int32
-                Return New CIntExpression(Parent, fromExpr)
+                convExp = New CIntExpression(Parent, fromExpr)
             Case TypeCode.Int64
-                Return New CLngExpression(Parent, fromExpr)
+                convExp = New CLngExpression(Parent, fromExpr)
             Case TypeCode.SByte
-                Return New CSByteExpression(Parent, fromExpr)
+                convExp = New CSByteExpression(Parent, fromExpr)
             Case TypeCode.Single
-                Return New CSngExpression(Parent, fromExpr)
+                convExp = New CSngExpression(Parent, fromExpr)
             Case TypeCode.String
-                Return New CStrExpression(Parent, fromExpr)
+                convExp = New CStrExpression(Parent, fromExpr)
             Case TypeCode.UInt16
-                Return New CUShortExpression(Parent, fromExpr)
+                convExp = New CUShortExpression(Parent, fromExpr)
             Case TypeCode.UInt32
-                Return New CUIntExpression(Parent, fromExpr)
+                convExp = New CUIntExpression(Parent, fromExpr)
             Case TypeCode.UInt64
-                Return New CULngExpression(Parent, fromExpr)
+                convExp = New CULngExpression(Parent, fromExpr)
             Case Else
                 If CecilHelper.IsByRef(DestinationType) AndAlso CecilHelper.IsByRef(fromExpr.ExpressionType) = False Then
                     Dim elementType As Mono.Cecil.TypeReference = CecilHelper.GetElementType(DestinationType)
@@ -79,9 +385,11 @@ Public MustInherit Class ConversionExpression
                     If result = False Then Throw New InternalException
                     Return tmp
                 Else
-                    Return New CTypeExpression(Parent, fromExpr, DestinationType)
+                    convExp = New CTypeExpression(Parent, fromExpr, DestinationType)
                 End If
         End Select
+        convExp.IsExplicit = IsExplicit
+        Return convExp
     End Function
 
     Public Overrides Function ResolveTypeReferences() As Boolean
@@ -107,23 +415,6 @@ Public MustInherit Class ConversionExpression
     Sub Init(ByVal Expression As Expression)
         m_Expression = Expression
     End Sub
-
-    Public Overrides ReadOnly Property IsConstant() As Boolean
-        Get
-            If m_Expression.IsConstant = False Then
-                Return False
-            Else
-                Dim value As Object
-                value = m_Expression.ConstantValue
-                Dim result As Object = Nothing
-                If Compiler.TypeResolution.CheckNumericRange(value, result, ExpressionType) Then
-                    Return True
-                Else
-                    Return False
-                End If
-            End If
-        End Get
-    End Property
 
     Protected Overrides Function ResolveExpressionInternal(ByVal Info As ResolveInfo) As Boolean
         Dim result As Boolean = True
@@ -218,5 +509,5 @@ Public MustInherit Class ConversionExpression
 
         Return result
     End Function
-
 End Class
+

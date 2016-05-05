@@ -33,6 +33,7 @@
 ../../source/Expressions/Classifications/VariableClassification.vb
 ../../source/Expressions/Classifications/VoidClassification.vb
 ../../source/Expressions/CompilerGeneratedExpression.vb
+../../source/Expressions/Conversions/ConversionType.vb
 ../../source/Expressions/IfExpression.vb
 ../../source/Expressions/LateBoundAccessToExpression.vb
 ../../source/Expressions/LateBoundAccessToPropertyAccessExpression.vb
@@ -59,6 +60,7 @@
 ../../source/General/NamespaceDictionary.vb
 ../../source/General/TypeDictionary.vb
 ../../source/General/TypeList.vb
+../../source/General/Version.vb
 ../../source/Infos/ExpressionResolveInfo.vb
 ../../source/Interfaces/IHasImplicitMembers.vb
 ../../source/Interfaces/IHasImplicitTypes.vb
@@ -86,9 +88,7 @@
 ../../source/Interfaces/IAttributableDeclaration.vb
 ../../source/Interfaces/IAttributableNamedDeclaration.vb
 ../../source/Interfaces/IBaseObject.vb
-../../source/Interfaces/IDefinableType.vb
 ../../source/Interfaces/IEmittable.vb
-../../source/Interfaces/IDefinableMember.vb
 ../../source/Interfaces/IMember.vb
 ../../source/Interfaces/IMethod.vb
 ../../source/Interfaces/INameable.vb

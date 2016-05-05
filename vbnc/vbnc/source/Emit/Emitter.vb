@@ -324,6 +324,7 @@ Partial Public Class Emitter
         Dim methodinf As Mono.Cecil.MethodReference = Method '= TryCast(Method, Mono.Cecil.MethodReference)
         If methodinf IsNot Nothing Then
             methodinf = Helper.GetMethodOrMethodReference(Info.Compiler, methodinf)
+            methodinf = CecilHelper.MakeEmittable(methodinf)
             If CecilHelper.FindDefinition(methodinf).IsStatic Then
                 Info.ILGen.Emit(OpCodes.Ldftn, methodinf)
             Else
@@ -356,8 +357,7 @@ Partial Public Class Emitter
         Info.ILGen.Emit(OpCodes.Newobj, Constructor)
     End Sub
 
-    Shared Sub EmitCastClass(ByVal Info As EmitInfo, ByVal FromType As Mono.Cecil.TypeReference, ByVal ToType As Mono.Cecil.TypeReference)
-        FromType = Helper.GetTypeOrTypeBuilder(Info.Compiler, FromType)
+    Shared Sub EmitCastClass(ByVal Info As EmitInfo, ByVal ToType As Mono.Cecil.TypeReference)
         ToType = Helper.GetTypeOrTypeBuilder(Info.Compiler, ToType)
         Helper.Assert(CecilHelper.IsByRef(ToType) = False)
         Info.ILGen.Emit(OpCodes.Castclass, ToType)
@@ -807,7 +807,7 @@ Partial Public Class Emitter
             Case TypeCombinations.DBNull_Object
                 converted = True 'Nothing to object
             Case TypeCombinations.Object_String
-                Emitter.EmitCastClass(Info, Helper.GetTypeOrTypeReference(Info.Compiler, Info.Compiler.TypeCache.System_Object), Helper.GetTypeOrTypeReference(Info.Compiler, Info.Compiler.TypeCache.System_String))
+                Emitter.EmitCastClass(Info, Helper.GetTypeOrTypeReference(Info.Compiler, Info.Compiler.TypeCache.System_String))
                 converted = True
             Case TypeCombinations.Int32_Boolean
                 'Nothing to do here

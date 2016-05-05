@@ -23,18 +23,6 @@ Public Class PropertyGroupToPropertyAccessExpression
     Private m_PropertyGroup As PropertyGroupClassification
     Private m_ExpressionType As Mono.Cecil.TypeReference
 
-    Public Overrides ReadOnly Property IsConstant() As Boolean
-        Get
-            Return m_PropertyGroup.IsConstant
-        End Get
-    End Property
-
-    Public Overrides ReadOnly Property ConstantValue() As Object
-        Get
-            Return m_PropertyGroup.ConstantValue
-        End Get
-    End Property
-
     Sub New(ByVal Parent As ParsedObject, ByVal PropertyGroupClassification As PropertyGroupClassification)
         MyBase.new(Parent)
         m_PropertyGroup = PropertyGroupClassification
@@ -53,6 +41,10 @@ Public Class PropertyGroupToPropertyAccessExpression
                 Helper.LOGMETHODRESOLUTION = True
                 m_PropertyGroup.ResolveGroup(New ArgumentList(Me))
                 Return Helper.AddError(Me, "Failed to resolve property group.")
+            End If
+
+            If m_PropertyGroup.InstanceExpression Is Nothing AndAlso CecilHelper.IsStatic(m_PropertyGroup.ResolvedProperty) = False Then
+                Return Report.ShowMessage(Messages.VBNC30469, Me.Location)
             End If
         End If
 
@@ -80,3 +72,4 @@ Public Class PropertyGroupToPropertyAccessExpression
         End Get
     End Property
 End Class
+

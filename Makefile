@@ -1,9 +1,9 @@
 thisdir := .
 
 SUBDIRS := build man class vbruntime
-net_4_0_SUBDIRS := tools vbnc scripts $(SUBDIRS)
+net_4_5_SUBDIRS := tools vbnc scripts $(SUBDIRS)
 
-DIST_SUBDIRS := $(net_4_0_SUBDIRS)
+DIST_SUBDIRS := $(net_4_5_SUBDIRS)
 
 include build/rules.make
 
@@ -29,6 +29,7 @@ dist-tarball: dist-pre
 
 dist: dist-tarball
 	rm -rf $(package)
+	sed -e s,@VERSION@,$(VERSION),g < mono-basic.spec.in > mono-basic.spec
 
 # the egrep -v is kind of a hack (to get rid of the makefrags)
 # but otherwise we have to make dist then make clean which

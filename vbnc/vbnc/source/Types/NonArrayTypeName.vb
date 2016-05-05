@@ -57,20 +57,6 @@ Public Class NonArrayTypeName
         End Set
     End Property
 
-    Function Clone(Optional ByVal NewParent As ParsedObject = Nothing) As NonArrayTypeName
-        If NewParent Is Nothing Then NewParent = Me.Parent
-        Dim result As New NonArrayTypeName(NewParent)
-        result.IsNullable = IsNullable
-        If Me.IsConstructedTypeName Then
-            result.Init(Me.AsConstructedTypeName.Clone)
-        ElseIf Me.IsSimpleTypeName Then
-            result.Init(Me.AsSimpleTypeName.Clone)
-        Else
-            Throw New InternalException(Me)
-        End If
-        Return result
-    End Function
-
     ReadOnly Property AsString() As String
         Get
             Return ToString()
@@ -154,16 +140,7 @@ Public Class NonArrayTypeName
         End If
 
         If m_IsNullable Then
-            If CecilHelper.IsValueType(m_ResolvedType) = False Then
-                Dim gp As GenericParameter = TryCast(m_ResolvedType, GenericParameter)
-                If gp Is Nothing OrElse gp.HasNotNullableValueTypeConstraint = False Then
-                    result = Compiler.Report.ShowMessage(Messages.VBNC33101, Me.Location, Helper.ToString(Me, m_ResolvedType))
-                End If
-            End If
-
-            Dim git As New GenericInstanceType(Compiler.TypeCache.System_Nullable1)
-            git.GenericArguments.Add(m_ResolvedType)
-            m_ResolvedType = git
+            result = CecilHelper.CreateNullableType(Me, m_ResolvedType, m_ResolvedType) AndAlso result
         End If
 
         Helper.Assert(m_ResolvedType IsNot Nothing OrElse result = False)

@@ -45,18 +45,6 @@ Public Class MemberAccessExpression
         End Get
     End Property
 
-    Public Overrides ReadOnly Property IsConstant() As Boolean
-        Get
-            Return Classification.IsConstant
-        End Get
-    End Property
-
-    Public Overrides ReadOnly Property ConstantValue() As Object
-        Get
-            Return Classification.ConstantValue
-        End Get
-    End Property
-
     Public Overrides Function ResolveTypeReferences() As Boolean
         Dim result As Boolean = True
 
@@ -76,23 +64,6 @@ Public Class MemberAccessExpression
         m_First = First
         m_Second = Second
     End Sub
-
-    Public Overrides Function Clone(Optional ByVal NewParent As ParsedObject = Nothing) As Expression
-        If NewParent Is Nothing Then NewParent = Me.Parent
-        Dim result As New MemberAccessExpression(NewParent)
-
-        Dim m_First As Expression = Nothing
-        Dim m_Second As IdentifierOrKeyword = Nothing
-        '  Dim m_TypeArguments As TypeParameters
-
-        If Me.m_First IsNot Nothing Then m_First = Me.m_First.Clone(result)
-        If Me.m_Second IsNot Nothing Then m_Second = Me.m_Second.Clone(result)
-        '  If Me.m_TypeArguments IsNot Nothing Then m_TypeArguments = Me.m_TypeArguments.Clone(result)
-
-        result.Init(m_First, m_Second)
-
-        Return result
-    End Function
 
     Protected Overrides Function GenerateCodeInternal(ByVal Info As EmitInfo) As Boolean
         Dim result As Boolean = True
@@ -154,6 +125,10 @@ Public Class MemberAccessExpression
             Return Classification.GetType(True)
         End Get
     End Property
+
+    Public Overrides Function GetConstant(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        Return Me.Classification.GetConstant(result, ShowError)
+    End Function
 
     Protected Overrides Function ResolveExpressionInternal(ByVal Info As ResolveInfo) As Boolean
         Dim result As Boolean = True
@@ -227,7 +202,7 @@ Public Class MemberAccessExpression
         If iokwta IsNot Nothing Then
             typeArguments = iokwta.TypeArguments
         End If
-        
+
         Helper.Assert(Name IsNot Nothing AndAlso Name <> "")
 
         If m_First IsNot Nothing Then
@@ -352,7 +327,7 @@ Public Class MemberAccessExpression
             If entry Is Nothing Then
                 Compiler.Report.ShowMessage(Messages.VBNC30456, Me.Location, Name, m_First.Classification.AsTypeClassification.Type.FullName)
                 Return False
-            End If			
+            End If
 
             If entry IsNot Nothing Then
                 members = entry.Members
@@ -421,6 +396,9 @@ Public Class MemberAccessExpression
                         Classification = New ValueClassification(Me, fld, Nothing)
                         Return True
                     Else
+                        If instanceExpression Is Nothing AndAlso CecilHelper.IsStatic(fld) = False Then
+                            Return Report.ShowMessage(Messages.VBNC30469, Me.Location)
+                        End If
                         Classification = New VariableClassification(Me, fld, instanceExpression)
                         Return True
                     End If
@@ -765,3 +743,4 @@ Public Class MemberAccessExpression
         End Get
     End Property
 End Class
+

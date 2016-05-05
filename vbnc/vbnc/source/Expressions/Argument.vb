@@ -91,6 +91,12 @@ Public MustInherit Class Argument
         If m_Expression IsNot Nothing Then
             result = m_Expression.ResolveExpression(Info) AndAlso result
 
+            If result = False Then Return False
+
+            If m_Expression.Classification Is Nothing Then
+                Return Compiler.Report.ShowMessage(Messages.VBNC99997, Me.Location)
+            End If
+
             If result AndAlso m_Expression.Classification.IsMethodGroupClassification Then
                 m_Expression = m_Expression.ReclassifyToValueExpression
                 result = m_Expression.ResolveExpression(Info) AndAlso result
@@ -99,7 +105,6 @@ Public MustInherit Class Argument
                 result = m_Expression.ResolveExpression(Info) AndAlso result
             End If
         End If
-
 
         Return result
     End Function

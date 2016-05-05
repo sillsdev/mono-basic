@@ -32,6 +32,11 @@ Public Class CByteExpression
         Return GenerateCode(Me, Info)
     End Function
 
+    Public Overrides Function GetConstant(ByRef result As Object, ByVal ShowError As Boolean) As Boolean
+        If Not Expression.GetConstant(result, ShowError) Then Return False
+        Return ConvertToByte(result, ShowError)
+    End Function
+
     Protected Overrides Function ResolveExpressionInternal(ByVal Info As ResolveInfo) As Boolean
         Dim result As Boolean = True
 
@@ -51,6 +56,9 @@ Public Class CByteExpression
         Dim ExpressionType As TypeReference = Conversion.ExpressionType
 
         result = ValidateForNullable(Info, Conversion, expTypeCode, expType) AndAlso result
+
+        If Conversion.GetConstant(Nothing, False) Then Return result
+
         Select Case expTypeCode
             Case TypeCode.Char
                 Info.Compiler.Report.ShowMessage(Messages.VBNC32006, Expression.Location, Helper.ToString(Expression, expType))
@@ -65,6 +73,12 @@ Public Class CByteExpression
                     'OK
                 Else
                     result = Conversion.FindUserDefinedConversionOperator() AndAlso result
+                End If
+            Case TypeCode.Byte
+                'Implicitly convertible
+            Case Else
+                If Conversion.IsExplicit = False AndAlso Conversion.Location.File(Conversion.Compiler).IsOptionStrictOn Then
+                    result = Conversion.Compiler.Report.ShowMessage(Messages.VBNC30512, Conversion.Location, Helper.ToString(Conversion, expType), Helper.ToString(Conversion, ExpressionType)) AndAlso result
                 End If
         End Select
 
@@ -123,38 +137,10 @@ Public Class CByteExpression
         Return result
     End Function
 
-    Public Overrides ReadOnly Property ConstantValue() As Object
-        Get
-            Dim tpCode As TypeCode
-            Dim originalValue As Object
-            originalValue = Expression.ConstantValue
-            tpCode = Helper.GetTypeCode(Compiler, CecilHelper.GetType(Compiler, originalValue))
-            Select Case tpCode
-                Case TypeCode.Boolean, TypeCode.Byte
-                    Return CByte(originalValue) 'No range checking needed.
-                Case TypeCode.SByte, TypeCode.Int16, TypeCode.UInt16, TypeCode.Int32, TypeCode.UInt32, TypeCode.UInt64, TypeCode.Int64, TypeCode.Single, TypeCode.Double, TypeCode.Decimal
-                    Dim resultvalue As Object = 0
-                    If Compiler.TypeResolution.CheckNumericRange(originalValue, resultvalue, ExpressionType) Then
-                        Return resultvalue
-                    Else
-                        Compiler.Report.ShowMessage(Messages.VBNC30439, Location, Helper.ToString(Expression, ExpressionType))
-                        Return CByte(0)
-                    End If
-                Case TypeCode.DBNull
-                    Return CByte(0)
-                Case Else
-                    Compiler.Report.ShowMessage(Messages.VBNC30060, Location, originalValue.ToString, Helper.ToString(Expression, ExpressionType))
-                    Return CByte(0)
-            End Select
-        End Get
-    End Property
-
-
     Overrides ReadOnly Property ExpressionType() As Mono.Cecil.TypeReference
         Get
-
             Return Compiler.TypeCache.System_Byte
         End Get
     End Property
-
 End Class
+

@@ -23,7 +23,6 @@ CCOMPILE = $(CC) $(USE_CFLAGS)
 BOOTSTRAP_VBNC = MONO_PATH="$(topdir)/class/lib/bootstrap$(PLATFORM_PATH_SEPARATOR)$$MONO_PATH" $(RUNTIME) $(RUNTIME_FLAGS) --debug $(topdir)/class/lib/bootstrap/vbnc.exe
 BOOT_COMPILE = $(BOOTSTRAP_VBNC) $(USE_VBNC_FLAGS)
 VBNC = MONO_PATH="$(topdir)/class/lib/net_4_0$(PLATFORM_PATH_SEPARATOR)$$MONO_PATH" $(RUNTIME) $(RUNTIME_FLAGS) --debug $(topdir)/class/lib/net_4_0/vbnc.exe
-DMCS = ${mono_bindir}/dmcs
 INSTALL = $(SHELL) $(topdir)/install-sh
 INSTALL_DATA = $(INSTALL) -c -m 644
 INSTALL_BIN = $(INSTALL) -c -m 755
@@ -31,7 +30,6 @@ INSTALL_LIB = $(INSTALL_BIN)
 MKINSTALLDIRS = $(SHELL) $(topdir)/mkinstalldirs
 INTERNAL_MCS = mcs
 INTERNAL_VBNC = $(RUNTIME) $(RUNTIME_FLAGS) $(topdir)/class/lib/$(PROFILE)/vbnc.exe
-INTERNAL_GMCS = gmcs
 INTERNAL_ILASM = ilasm
 INTERNAL_RESGEN = resgen
 corlib = mscorlib.dll
@@ -94,15 +92,15 @@ endif
 # Rest of the configuration
 
 ifndef PROFILE
-PROFILE = net_4_0
+PROFILE = net_4_5
 endif
 
 include $(topdir)/build/profiles/$(PROFILE).make
 -include $(topdir)/build/config.make
 
 
-# vbnc is built in one the profiles (currently net_2_0, this will likely change to net_4_0 soon)
-PROFILES = net_2_0 net_4_0 $(CONFIGURED_PROFILES)
+# vbnc is built in one the profiles
+PROFILES = $(CONFIGURED_PROFILES)
 PLATFORMS = linux win32
 
 
