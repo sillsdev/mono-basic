@@ -22,3 +22,5 @@ class/lib/net_4_0
 class/lib/net_4_5
 scripts/vbnc
 scripts/vbnc2
+vbnc/vbnc/source/General/Version.vb
+vbruntime/Microsoft.VisualBasic/Microsoft.VisualBasic.dll.sources
